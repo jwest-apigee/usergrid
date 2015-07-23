@@ -49,7 +49,7 @@ public class ConnectionEx {
         String apiUrl = props.getProperty("usergrid.apiUrl");
 
         Usergrid.initialize(apiUrl, orgName, appName);
-        Client client = Usergrid.getInstance();
+        Usergrid client = Usergrid.getInstance();
 
         ApiResponse response = client.authorizeAppClient(client_id, client_secret);
 

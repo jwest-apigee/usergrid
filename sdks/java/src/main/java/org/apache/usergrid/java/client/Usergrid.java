@@ -16,21 +16,23 @@
  */
 package org.apache.usergrid.java.client;
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.apache.usergrid.java.client.model.*;
+import org.apache.usergrid.java.client.query.Query;
 import org.apache.usergrid.java.client.response.ApiResponse;
+import org.glassfish.jersey.jackson.JacksonFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.*;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.Invocation;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.apache.usergrid.java.client.utils.JsonUtils.parse;
 import static org.apache.usergrid.java.client.utils.ObjectUtils.isEmpty;
-import static org.apache.usergrid.java.client.utils.UrlUtils.*;
+import static org.apache.usergrid.java.client.utils.UrlUtils.encodeParams;
 import static org.springframework.util.StringUtils.arrayToDelimitedString;
 import static org.springframework.util.StringUtils.tokenizeToStringArray;
 
@@ -40,12 +42,48 @@ import static org.springframework.util.StringUtils.tokenizeToStringArray;
  */
 public class Usergrid {
 
+  private static final Map<String, Usergrid> instances_;
+  public static final String HTTP_POST = "POST";
+  public static final String HEADER_AUTHORIZATION = "Authorization";
+  public static final String BEARER = "Bearer ";
+  public static final String HTTP_PUT = "PUT";
+  public static final String HTTP_GET = "GET";
+  public static final String HTTP_DELETE = "DELETE";
+  public static final String STR_GROUPS = "groups";
+  public static final String STR_USERS = "users";
+
+  public static final String STR_DEFAULT = "default";
+  public static final String STR_BLANK = "";
+
+  static {
+
+    instances_ = new HashMap<>(5);
+    instances_.put(STR_DEFAULT, new Usergrid());
+  }
+
+  public static Usergrid getInstance() {
+
+    return getInstance(STR_DEFAULT);
+  }
+
+  public static Usergrid getInstance(String id) {
+
+    Usergrid client = instances_.get(id);
+
+    if (client == null) {
+      client = new Usergrid();
+      instances_.put(id, client);
+    }
+
+    return client;
+  }
+
   private static final Logger log = LoggerFactory.getLogger(Usergrid.class);
 
   public static boolean FORCE_PUBLIC_API = false;
 
   // Public API
-  public static String PUBLIC_API_URL = "http://api.usergrid.com";
+  public static String PUBLIC_API_URL = "http://localhost:8080";
 
   // Local API of standalone server
   public static String LOCAL_STANDALONE_API_URL = "http://localhost:8080";
@@ -57,28 +95,40 @@ public class Usergrid {
   public static String LOCAL_API_URL = LOCAL_STANDALONE_API_URL;
 
   private String apiUrl = PUBLIC_API_URL;
-
   private String organizationId;
   private String applicationId;
   private String clientId;
   private String clientSecret;
-
   private User loggedInUser = null;
-
   private String accessToken = null;
-
   private String currentOrganization = null;
-
-  static RestTemplate restTemplate = new RestTemplate();
-
-  static Map<String, Client> instance_map = new HashMap<String, Client>(3);
+  private javax.ws.rs.client.Client restClient;
 
   /**
    * Default constructor for instantiating a client.
    */
-  private Usergrid() {
+  public Usergrid() {
+    init();
   }
 
+  /**
+   * Instantiate client for a specific app
+   *
+   * @param applicationId the application id or name
+   */
+  public Usergrid(final String organizationId,
+                  final String applicationId) {
+    init();
+    this.organizationId = organizationId;
+    this.applicationId = applicationId;
+  }
+
+  public void init() {
+
+    restClient = ClientBuilder.newBuilder()
+        .register(JacksonFeature.class)
+        .build();
+  }
 
   /**
    * @return the Usergrid API url (default: http://api.usergrid.com)
@@ -90,7 +140,7 @@ public class Usergrid {
   /**
    * @param apiUrl the Usergrid API url (default: http://api.usergrid.com)
    */
-  public void setApiUrl(String apiUrl) {
+  public void setApiUrl(final String apiUrl) {
     this.apiUrl = apiUrl;
   }
 
@@ -98,10 +148,11 @@ public class Usergrid {
    * @param apiUrl the Usergrid API url (default: http://api.usergrid.com)
    * @return Client object for method call chaining
    */
-  public Usergrid withApiUrl(String apiUrl) {
+  public Usergrid withApiUrl(final String apiUrl) {
     this.apiUrl = apiUrl;
     return this;
   }
+
 
   /**
    * the organizationId to set
@@ -109,7 +160,7 @@ public class Usergrid {
    * @param organizationId
    * @return
    */
-  public Usergrid withOrganizationId(String organizationId) {
+  public Usergrid withOrganizationId(final String organizationId) {
     this.organizationId = organizationId;
     return this;
   }
@@ -125,7 +176,7 @@ public class Usergrid {
   /**
    * @param organizationId the organizationId to set
    */
-  public void setOrganizationId(String organizationId) {
+  public void setOrganizationId(final String organizationId) {
     this.organizationId = organizationId;
   }
 
@@ -139,7 +190,7 @@ public class Usergrid {
   /**
    * @param applicationId the application id or name
    */
-  public void setApplicationId(String applicationId) {
+  public void setApplicationId(final String applicationId) {
     this.applicationId = applicationId;
   }
 
@@ -148,7 +199,7 @@ public class Usergrid {
    * @param applicationId the application id or name
    * @return Client object for method call chaining
    */
-  public Usergrid withApplicationId(String applicationId) {
+  public Usergrid withApplicationId(final String applicationId) {
     this.applicationId = applicationId;
     return this;
   }
@@ -165,7 +216,7 @@ public class Usergrid {
    * @param clientId the client key id for making calls as the application-owner.
    *                 Not safe for most mobile use.
    */
-  public void setClientId(String clientId) {
+  public void setClientId(final String clientId) {
     this.clientId = clientId;
   }
 
@@ -174,7 +225,7 @@ public class Usergrid {
    *                 Not safe for most mobile use.
    * @return Client object for method call chaining
    */
-  public Usergrid withClientId(String clientId) {
+  public Usergrid withClientId(final String clientId) {
     this.clientId = clientId;
     return this;
   }
@@ -191,7 +242,7 @@ public class Usergrid {
    * @param clientSecret the client key id for making calls as the application-owner.
    *                     Not safe for most mobile use.
    */
-  public void setClientSecret(String clientSecret) {
+  public void setClientSecret(final String clientSecret) {
     this.clientSecret = clientSecret;
   }
 
@@ -200,7 +251,7 @@ public class Usergrid {
    *                     Not safe for most mobile use.
    * @return Client object for method call chaining
    */
-  public Usergrid withClientSecret(String clientSecret) {
+  public Usergrid withClientSecret(final String clientSecret) {
     this.clientSecret = clientSecret;
     return this;
   }
@@ -215,7 +266,7 @@ public class Usergrid {
   /**
    * @param loggedInUser the logged-in user, usually not set by host application
    */
-  public void setLoggedInUser(User loggedInUser) {
+  public void setLoggedInUser(final User loggedInUser) {
     this.loggedInUser = loggedInUser;
   }
 
@@ -229,7 +280,7 @@ public class Usergrid {
   /**
    * @param accessToken an OAuth2 access token. Usually not set by host application
    */
-  public void setAccessToken(String accessToken) {
+  public void setAccessToken(final String accessToken) {
     this.accessToken = accessToken;
   }
 
@@ -243,57 +294,8 @@ public class Usergrid {
   /**
    * @param currentOrganization
    */
-  public void setCurrentOrganization(String currentOrganization) {
+  public void setCurrentOrganization(final String currentOrganization) {
     this.currentOrganization = currentOrganization;
-  }
-
-  /**
-   * Low-level HTTP request method. Synchronous, blocks till response or
-   * timeout.
-   *
-   * @param method   HttpMethod method
-   * @param cls      class for the return type
-   * @param params   parameters to encode as querystring or body parameters
-   * @param data     JSON data to put in body
-   * @param segments REST url path segments (i.e. /segment1/segment2/segment3)
-   * @return results marshalled into class specified in cls parameter
-   */
-  public <T> T httpRequest(HttpMethod method, Class<T> cls,
-                           Map<String, Object> params, Object data, String... segments) {
-    HttpHeaders requestHeaders = new HttpHeaders();
-    requestHeaders.setAccept(Collections
-        .singletonList(MediaType.APPLICATION_JSON));
-    if (accessToken != null) {
-      String auth = "Bearer " + accessToken;
-      requestHeaders.set("Authorization", auth);
-      log.info("Authorization: " + auth);
-    }
-    String url = path(apiUrl, segments);
-
-    MediaType contentType = MediaType.APPLICATION_JSON;
-    if (method.equals(HttpMethod.POST) && isEmpty(data) && !isEmpty(params)) {
-      data = encodeParams(params);
-      contentType = MediaType.APPLICATION_FORM_URLENCODED;
-    } else {
-      url = addQueryParams(url, params);
-    }
-    requestHeaders.setContentType(contentType);
-    HttpEntity<?> requestEntity = null;
-
-    if (method.equals(HttpMethod.POST) || method.equals(HttpMethod.PUT)) {
-      if (isEmpty(data)) {
-        data = JsonNodeFactory.instance.objectNode();
-      }
-      requestEntity = new HttpEntity<Object>(data, requestHeaders);
-    } else {
-      requestEntity = new HttpEntity<Object>(requestHeaders);
-    }
-    log.info("Client.httpRequest(): url: " + url);
-    ResponseEntity<T> responseEntity = restTemplate.exchange(url, method,
-        requestEntity, cls);
-    log.info("Client.httpRequest(): reponse body: "
-        + responseEntity.getBody().toString());
-    return responseEntity.getBody();
   }
 
   /**
@@ -305,32 +307,57 @@ public class Usergrid {
    * @param segments
    * @return
    */
-  public ApiResponse apiRequest(HttpMethod method,
-                                Map<String, Object> params, Object data, String... segments) {
-    ApiResponse response = null;
-    try {
-      response = httpRequest(method, ApiResponse.class, params, data,
-          segments);
-      log.info("Client.apiRequest(): Response: " + response);
-    } catch (HttpClientErrorException e) {
-      log.error("Client.apiRequest(): HTTP error: "
-          + e.getLocalizedMessage());
-      response = parse(e.getResponseBodyAsString(), ApiResponse.class);
-      if ((response != null) && !isEmpty(response.getError())) {
-        log.error("Client.apiRequest(): Response error: "
-            + response.getError());
-        if (!isEmpty(response.getException())) {
-          log.error("Client.apiRequest(): Response exception: "
-              + response.getException());
+  public ApiResponse apiRequest(final String method,
+                                final Map<String, Object> params,
+                                Object data,
+                                String... segments) {
+
+    //https://jersey.java.net/documentation/latest/client.html
+
+    // required to appropriately set content-length when there is no content.  blank string results in '0'
+    //   whereas null results in no header
+    data = data == null ? STR_BLANK : data;
+
+    String contentType = MediaType.APPLICATION_JSON;
+
+    WebTarget webTarget = restClient.target(apiUrl);
+
+    for (String segment : segments)
+      webTarget = webTarget.path(segment);
+
+    if (method.equals(HTTP_POST) && isEmpty(data) && !isEmpty(params)) {
+      data = encodeParams(params);
+      contentType = MediaType.APPLICATION_FORM_URLENCODED;
+
+    } else {
+
+      if (params != null) {
+
+        for (Map.Entry<String, Object> entry : params.entrySet()) {
+          webTarget = webTarget.queryParam(entry.getKey(), String.valueOf(entry.getValue()));
         }
       }
     }
-    return response;
+
+    Invocation.Builder invocationBuilder = webTarget.request(contentType);
+
+    if (accessToken != null) {
+      String auth = BEARER + accessToken;
+      invocationBuilder.header(HEADER_AUTHORIZATION, auth);
+    }
+
+    return invocationBuilder.method(method, Entity.entity(data, contentType), ApiResponse.class);
   }
 
-  protected void assertValidApplicationId() {
+
+  public void assertInitialized() {
+
     if (isEmpty(applicationId)) {
       throw new IllegalArgumentException("No application id specified");
+    }
+
+    if (isEmpty(organizationId)) {
+      throw new IllegalArgumentException("No organization id specified");
     }
   }
 
@@ -342,10 +369,11 @@ public class Usergrid {
    * @return non-null ApiResponse if request succeeds, check getError() for
    * "invalid_grant" to see if access is denied.
    */
-  public ApiResponse authorizeAppUser(String email, String password) {
+  public ApiResponse authorizeAppUser(final String email,
+                                      final String password) {
     validateNonEmptyParam(email, "email");
     validateNonEmptyParam(password, "password");
-    assertValidApplicationId();
+    assertInitialized();
     loggedInUser = null;
     accessToken = null;
     currentOrganization = null;
@@ -353,11 +381,13 @@ public class Usergrid {
     formData.put("grant_type", "password");
     formData.put("username", email);
     formData.put("password", password);
-    ApiResponse response = apiRequest(HttpMethod.POST, formData, null,
+    ApiResponse response = apiRequest(HTTP_POST, formData, null,
         organizationId, applicationId, "token");
+
     if (response == null) {
       return response;
     }
+
     if (!isEmpty(response.getAccessToken()) && (response.getUser() != null)) {
       loggedInUser = response.getUser();
       accessToken = response.getAccessToken();
@@ -378,14 +408,15 @@ public class Usergrid {
    * @param newPassword
    * @return
    */
-  public ApiResponse changePassword(String username, String oldPassword,
-                                    String newPassword) {
+  public ApiResponse changePassword(final String username,
+                                    final String oldPassword,
+                                    final String newPassword) {
 
     Map<String, Object> data = new HashMap<String, Object>();
     data.put("newpassword", newPassword);
     data.put("oldpassword", oldPassword);
 
-    return apiRequest(HttpMethod.POST, null, data, organizationId, applicationId, "users",
+    return apiRequest(HTTP_POST, null, data, organizationId, applicationId, STR_USERS,
         username, "password");
 
   }
@@ -398,22 +429,24 @@ public class Usergrid {
    * @return non-null ApiResponse if request succeeds, check getError() for
    * "invalid_grant" to see if access is denied.
    */
-  public ApiResponse authorizeAppUserViaPin(String email, String pin) {
+  public ApiResponse authorizeAppUserViaPin(final String email,
+                                            final String pin) {
     validateNonEmptyParam(email, "email");
     validateNonEmptyParam(pin, "pin");
-    assertValidApplicationId();
+    assertInitialized();
     loggedInUser = null;
     accessToken = null;
     currentOrganization = null;
-    Map<String, Object> formData = new HashMap<String, Object>();
+    Map<String, Object> formData = new HashMap<>();
     formData.put("grant_type", "pin");
     formData.put("username", email);
     formData.put("pin", pin);
-    ApiResponse response = apiRequest(HttpMethod.POST, formData, null,
-        organizationId, applicationId, "token");
+    ApiResponse response = apiRequest(HTTP_POST, formData, null, organizationId, applicationId, "token");
+
     if (response == null) {
-      return response;
+      return null;
     }
+
     if (!isEmpty(response.getAccessToken()) && (response.getUser() != null)) {
       loggedInUser = response.getUser();
       accessToken = response.getAccessToken();
@@ -422,6 +455,7 @@ public class Usergrid {
     } else {
       log.info("Client.authorizeAppUser(): Response: " + response);
     }
+
     return response;
   }
 
@@ -429,34 +463,37 @@ public class Usergrid {
    * Log the user in with their Facebook access token retrived via Facebook
    * OAuth.
    *
-   * @param email
-   * @param pin
+   * @param fb_access_token
    * @return non-null ApiResponse if request succeeds, check getError() for
    * "invalid_grant" to see if access is denied.
    */
-  public ApiResponse authorizeAppUserViaFacebook(String fb_access_token) {
+  public ApiResponse authorizeAppUserViaFacebook(final String fb_access_token) {
+
     validateNonEmptyParam(fb_access_token, "Facebook token");
-    assertValidApplicationId();
+    assertInitialized();
     loggedInUser = null;
     accessToken = null;
     currentOrganization = null;
-    Map<String, Object> formData = new HashMap<String, Object>();
+    Map<String, Object> formData = new HashMap<>();
     formData.put("fb_access_token", fb_access_token);
-    ApiResponse response = apiRequest(HttpMethod.POST, formData, null,
-        organizationId, applicationId, "auth", "facebook");
+    ApiResponse response = apiRequest(HTTP_POST, formData, null, organizationId, applicationId, "auth", "facebook");
+
     if (response == null) {
-      return response;
+      return null;
     }
+
     if (!isEmpty(response.getAccessToken()) && (response.getUser() != null)) {
+
       loggedInUser = response.getUser();
       accessToken = response.getAccessToken();
       currentOrganization = null;
-      log.info("Client.authorizeAppUserViaFacebook(): Access token: "
-          + accessToken);
+      log.info("Client.authorizeAppUserViaFacebook(): Access token: " + accessToken);
+
     } else {
-      log.info("Client.authorizeAppUserViaFacebook(): Response: "
-          + response);
+
+      log.info("Client.authorizeAppUserViaFacebook(): Response: " + response);
     }
+
     return response;
   }
 
@@ -464,40 +501,46 @@ public class Usergrid {
    * Log the app in with it's client id and client secret key. Not recommended
    * for production apps.
    *
-   * @param email
-   * @param pin
+   * @param clientId
+   * @param clientSecret
    * @return non-null ApiResponse if request succeeds, check getError() for
    * "invalid_grant" to see if access is denied.
    */
-  public ApiResponse authorizeAppClient(String clientId, String clientSecret) {
+  public ApiResponse authorizeAppClient(final String clientId,
+                                        final String clientSecret) {
+
     validateNonEmptyParam(clientId, "client identifier");
     validateNonEmptyParam(clientSecret, "client secret");
-    assertValidApplicationId();
+    assertInitialized();
     loggedInUser = null;
     accessToken = null;
     currentOrganization = null;
-    Map<String, Object> formData = new HashMap<String, Object>();
+    Map<String, Object> formData = new HashMap<>();
     formData.put("grant_type", "client_credentials");
     formData.put("client_id", clientId);
     formData.put("client_secret", clientSecret);
-    ApiResponse response = apiRequest(HttpMethod.POST, formData, null,
-        organizationId, applicationId, "token");
+    ApiResponse response = apiRequest(HTTP_POST, formData, null, organizationId, applicationId, "token");
+
     if (response == null) {
-      return response;
+      return null;
     }
+
     if (!isEmpty(response.getAccessToken())) {
       loggedInUser = null;
       accessToken = response.getAccessToken();
       currentOrganization = null;
-      log.info("Client.authorizeAppClient(): Access token: "
-          + accessToken);
+      log.info("Client.authorizeAppClient(): Access token: " + accessToken);
+
     } else {
+
       log.info("Client.authorizeAppClient(): Response: " + response);
     }
+
     return response;
   }
 
-  private void validateNonEmptyParam(Object param, String paramName) {
+  private void validateNonEmptyParam(final Object param,
+                                     final String paramName) {
     if (isEmpty(param)) {
       throw new IllegalArgumentException(paramName + " cannot be null or empty");
     }
@@ -506,37 +549,41 @@ public class Usergrid {
   /**
    * Registers a device using the device's unique device ID.
    *
-   * @param context
+   * @param deviceId
    * @param properties
    * @return a Device object if success
    */
-  public Device registerDevice(UUID deviceId, Map<String, Object> properties) {
-    assertValidApplicationId();
+  public Device registerDevice(final UUID deviceId,
+                               Map<String, Object> properties) {
+    assertInitialized();
+
     if (properties == null) {
-      properties = new HashMap<String, Object>();
+      properties = new HashMap<>();
     }
+
     properties.put("refreshed", System.currentTimeMillis());
-    ApiResponse response = apiRequest(HttpMethod.PUT, null, properties,
-        organizationId, applicationId, "devices", deviceId.toString());
+    ApiResponse response = apiRequest(HTTP_PUT, null, properties, organizationId, applicationId, "devices", deviceId.toString());
+
     return response.getFirstEntity(Device.class);
   }
 
   /**
    * Registers a device using the device's unique device ID.
    *
-   * @param context
    * @param properties
    * @return a Device object if success
    */
-  public Device registerDeviceForPush(UUID deviceId,
-                                      String notifier,
-                                      String token,
+  public Device registerDeviceForPush(final UUID deviceId,
+                                      final String notifier,
+                                      final String token,
                                       Map<String, Object> properties) {
     if (properties == null) {
-      properties = new HashMap<String, Object>();
+      properties = new HashMap<>();
     }
+
     String notifierKey = notifier + ".notifier.id";
     properties.put(notifierKey, token);
+
     return registerDevice(deviceId, properties);
   }
 
@@ -546,14 +593,40 @@ public class Usergrid {
    * @param usergridEntity
    * @return an ApiResponse with the new usergridEntity in it.
    */
-  public ApiResponse createEntity(UsergridEntity usergridEntity) {
-    assertValidApplicationId();
+  public ApiResponse createEntity(final UsergridEntity usergridEntity) {
+    assertInitialized();
+
     if (isEmpty(usergridEntity.getType())) {
       throw new IllegalArgumentException("Missing usergridEntity type");
     }
-    ApiResponse response = apiRequest(HttpMethod.POST, null, usergridEntity,
-        organizationId, applicationId, usergridEntity.getType());
-    return response;
+
+    return apiRequest(HTTP_POST, null, usergridEntity, organizationId, applicationId, usergridEntity.getType());
+  }
+
+
+  /**
+   * Create a new e on the server.
+   *
+   * @param e
+   * @return an ApiResponse with the new e in it.
+   */
+  public ApiResponse updateEntity(final UsergridEntity e) {
+
+    if (isEmpty(e.getType())) {
+      throw new IllegalArgumentException("UsergridEntity is required to have a 'type' property and does not");
+    }
+
+    assertInitialized();
+
+    String name = e.getStringProperty("name");
+    String uuid = e.getStringProperty("uuid");
+
+    if (name == null && uuid == null)
+      return this.createEntity(e);
+
+    String entityIdentifier = (uuid != null ? uuid : name);
+
+    return apiRequest(HTTP_PUT, null, e.getProperties(), organizationId, applicationId, e.getType(), entityIdentifier);
   }
 
   /**
@@ -564,14 +637,16 @@ public class Usergrid {
    * @return an ApiResponse with the new entity in it.
    */
   public ApiResponse createEntity(Map<String, Object> properties) {
-    assertValidApplicationId();
+
+    assertInitialized();
+
     if (isEmpty(properties.get("type"))) {
       throw new IllegalArgumentException("Missing entity type");
     }
-    ApiResponse response = apiRequest(HttpMethod.POST, null, properties,
-        organizationId, applicationId, properties.get("type").toString());
-    return response;
+
+    return apiRequest(HTTP_POST, null, properties, organizationId, applicationId, properties.get("type").toString());
   }
+
 
   /**
    * Creates a user.
@@ -582,22 +657,30 @@ public class Usergrid {
    * @param password
    * @return
    */
-  public ApiResponse createUser(String username, String name, String email,
-                                String password) {
-    Map<String, Object> properties = new HashMap<String, Object>();
+  public ApiResponse createUser(final String username,
+                                final String name,
+                                final String email,
+                                final String password) {
+
+    Map<String, Object> properties = new HashMap<>();
     properties.put("type", "user");
+
     if (username != null) {
       properties.put("username", username);
     }
+
     if (name != null) {
       properties.put("name", name);
     }
+
     if (email != null) {
       properties.put("email", email);
     }
+
     if (password != null) {
       properties.put("password", password);
     }
+
     return createEntity(properties);
   }
 
@@ -608,16 +691,21 @@ public class Usergrid {
    * @return a map with the group path as the key and the Group entity as the
    * value
    */
-  public Map<String, Group> getGroupsForUser(String userId) {
-    ApiResponse response = apiRequest(HttpMethod.GET, null, null,
-        organizationId, applicationId, "users", userId, "groups");
-    Map<String, Group> groupMap = new HashMap<String, Group>();
+  public Map<String, Group> getGroupsForUser(final String userId) {
+
+    ApiResponse response = apiRequest(HTTP_GET, null, null, organizationId, applicationId, STR_USERS, userId, STR_GROUPS);
+
+    Map<String, Group> groupMap = new HashMap<>();
+
     if (response != null) {
       List<Group> groups = response.getEntities(Group.class);
+
       for (Group group : groups) {
         groupMap.put(group.getPath(), group);
       }
+
     }
+
     return groupMap;
   }
 
@@ -627,10 +715,9 @@ public class Usergrid {
    * @param userId
    * @return
    */
-  public Query queryActivityFeedForUser(String userId) {
-    Query q = queryEntitiesRequest(HttpMethod.GET, null, null,
-        organizationId, applicationId, "users", userId, "feed");
-    return q;
+  public QueryResult queryActivityFeedForUser(final String userId) {
+
+    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, STR_USERS, userId, "feed");
   }
 
   /**
@@ -640,9 +727,9 @@ public class Usergrid {
    * @param activity
    * @return
    */
-  public ApiResponse postUserActivity(String userId, Activity activity) {
-    return apiRequest(HttpMethod.POST, null, activity, organizationId, applicationId, "users",
-        userId, "activities");
+  public ApiResponse postUserActivity(final String userId, final Activity activity) {
+
+    return apiRequest(HTTP_POST, null, activity, organizationId, applicationId, STR_USERS, userId, "activities");
   }
 
   /**
@@ -659,24 +746,32 @@ public class Usergrid {
    * @param objectContent
    * @return
    */
-  public ApiResponse postUserActivity(String verb, String title,
-                                      String content, String category, User user, UsergridEntity object,
-                                      String objectType, String objectName, String objectContent) {
-    Activity activity = Activity.newActivity(verb, title, content,
-        category, user, object, objectType, objectName, objectContent);
+  public ApiResponse postUserActivity(final String verb,
+                                      final String title,
+                                      final String content,
+                                      final String category,
+                                      final User user,
+                                      final UsergridEntity object,
+                                      final String objectType,
+                                      final String objectName,
+                                      final String objectContent) {
+
+    Activity activity = Activity.newActivity(verb, title, content, category, user, object, objectType, objectName, objectContent);
+
     return postUserActivity(user.getUuid().toString(), activity);
   }
 
   /**
    * Posts an activity to a group. Activity must already be created.
    *
-   * @param userId
+   * @param groupId
    * @param activity
    * @return
    */
-  public ApiResponse postGroupActivity(String groupId, Activity activity) {
-    return apiRequest(HttpMethod.POST, null, activity, organizationId, applicationId, "groups",
-        groupId, "activities");
+  public ApiResponse postGroupActivity(final String groupId,
+                                       final Activity activity) {
+
+    return apiRequest(HTTP_POST, null, activity, organizationId, applicationId, STR_GROUPS, groupId, "activities");
   }
 
   /**
@@ -694,12 +789,18 @@ public class Usergrid {
    * @param objectContent
    * @return
    */
-  public ApiResponse postGroupActivity(String groupId, String verb, String title,
-                                       String content, String category, User user, UsergridEntity object,
-                                       String objectType, String objectName, String objectContent) {
-    Activity activity = Activity.newActivity(verb, title, content,
-        category, user, object, objectType, objectName, objectContent);
-    return postGroupActivity(groupId, activity);
+  public ApiResponse postGroupActivity(final String groupId,
+                                       final String verb,
+                                       final String title,
+                                       final String content,
+                                       final String category,
+                                       final User user,
+                                       final UsergridEntity object,
+                                       final String objectType,
+                                       final String objectName,
+                                       final String objectContent) {
+
+    return postGroupActivity(groupId, Activity.newActivity(verb, title, content, category, user, object, objectType, objectName, objectContent));
   }
 
   /**
@@ -708,7 +809,7 @@ public class Usergrid {
    * @param activity
    * @return
    */
-  public ApiResponse postActivity(Activity activity) {
+  public ApiResponse postActivity(final Activity activity) {
     return createEntity(activity);
   }
 
@@ -726,37 +827,39 @@ public class Usergrid {
    * @param objectContent
    * @return
    */
-  public ApiResponse postActivity(String verb, String title,
-                                  String content, String category, User user, UsergridEntity object,
-                                  String objectType, String objectName, String objectContent) {
-    Activity activity = Activity.newActivity(verb, title, content,
-        category, user, object, objectType, objectName, objectContent);
-    return createEntity(activity);
+  public ApiResponse postActivity(final String verb,
+                                  final String title,
+                                  final String content,
+                                  final String category,
+                                  final User user,
+                                  final UsergridEntity object,
+                                  final String objectType,
+                                  final String objectName,
+                                  final String objectContent) {
+
+    return createEntity(Activity.newActivity(verb, title, content, category, user, object, objectType, objectName, objectContent));
   }
 
   /**
    * Get a group's activity feed. Returned as a query to ease paging.
    *
-   * @param userId
    * @return
    */
-  public Query queryActivity() {
-    Query q = queryEntitiesRequest(HttpMethod.GET, null, null,
-        organizationId, applicationId, "activities");
-    return q;
+  public QueryResult queryActivity() {
+
+    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, "activities");
   }
 
 
   /**
    * Get a group's activity feed. Returned as a query to ease paging.
    *
-   * @param userId
+   * @param groupId
    * @return
    */
-  public Query queryActivityFeedForGroup(String groupId) {
-    Query q = queryEntitiesRequest(HttpMethod.GET, null, null,
-        organizationId, applicationId, "groups", groupId, "feed");
-    return q;
+  public QueryResult queryActivityFeedForGroup(final String groupId) {
+
+    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, STR_GROUPS, groupId, "feed");
   }
 
   /**
@@ -770,10 +873,12 @@ public class Usergrid {
    * @param segments
    * @return
    */
-  public Query queryEntitiesRequest(HttpMethod method,
-                                    Map<String, Object> params, Object data, String... segments) {
-    ApiResponse response = apiRequest(method, params, data, segments);
-    return new EntityQuery(response, method, params, data, segments);
+  public QueryResult queryEntitiesRequest(final String method,
+                                          final Map<String, Object> params,
+                                          final Object data,
+                                          final String... segments) {
+
+    return new EntityQueryResult(apiRequest(method, params, data, segments), method, params, data, segments);
   }
 
   /**
@@ -781,10 +886,9 @@ public class Usergrid {
    *
    * @return
    */
-  public Query queryUsers() {
-    Query q = queryEntitiesRequest(HttpMethod.GET, null, null,
-        organizationId, applicationId, "users");
-    return q;
+  public QueryResult queryUsers() {
+
+    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, STR_USERS);
   }
 
   /**
@@ -794,12 +898,12 @@ public class Usergrid {
    * @param ql
    * @return
    */
-  public Query queryUsers(String ql) {
-    Map<String, Object> params = new HashMap<String, Object>();
+  public QueryResult queryUsers(String ql) {
+
+    Map<String, Object> params = new HashMap<>();
     params.put("ql", ql);
-    Query q = queryEntitiesRequest(HttpMethod.GET, params, null, organizationId,
-        applicationId, "users");
-    return q;
+
+    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, STR_USERS);
   }
 
   /**
@@ -807,19 +911,29 @@ public class Usergrid {
    * the specified location and optionally using the provided query command.
    * For example: "name contains 'ed'".
    *
-   * @param distance
-   * @param location
-   * @param ql
    * @return
    */
-  public Query queryUsersWithinLocation(float distance, float lattitude,
-                                        float longitude, String ql) {
-    Map<String, Object> params = new HashMap<String, Object>();
-    params.put("ql",
-        this.makeLocationQL(distance, lattitude, longitude, ql));
-    Query q = queryEntitiesRequest(HttpMethod.GET, params, null, organizationId,
-        applicationId, "users");
-    return q;
+  public QueryResult queryUsersWithinLocation(final float distance,
+                                              final float lattitude,
+                                              final float longitude,
+                                              final String ql) {
+
+    Map<String, Object> params = new HashMap<>();
+    params.put("ql", this.makeLocationQL(distance, lattitude, longitude, ql));
+
+    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, STR_USERS);
+  }
+
+  public ApiResponse getEntity(final String type,
+                                 final String id) {
+
+    return apiRequest(HTTP_GET, null, null, organizationId, applicationId, type, id);
+  }
+
+  public ApiResponse deleteEntity(final String type,
+                                  final String id) {
+
+    return apiRequest(HTTP_DELETE, null, null, organizationId, applicationId, type, id);
   }
 
   /**
@@ -828,10 +942,9 @@ public class Usergrid {
    * @param groupId
    * @return
    */
-  public Query queryUsersForGroup(String groupId) {
-    Query q = queryEntitiesRequest(HttpMethod.GET, null, null, organizationId,
-        applicationId, "groups", groupId, "users");
-    return q;
+  public QueryResult queryUsersForGroup(final String groupId) {
+
+    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, STR_GROUPS, groupId, STR_USERS);
   }
 
   /**
@@ -841,9 +954,10 @@ public class Usergrid {
    * @param groupId
    * @return
    */
-  public ApiResponse addUserToGroup(String userId, String groupId) {
-    return apiRequest(HttpMethod.POST, null, null, organizationId, applicationId, "groups",
-        groupId, "users", userId);
+  public ApiResponse addUserToGroup(final String userId,
+                                    final String groupId) {
+
+    return apiRequest(HTTP_POST, null, null, organizationId, applicationId, STR_GROUPS, groupId, STR_USERS, userId);
   }
 
   /**
@@ -853,7 +967,7 @@ public class Usergrid {
    * @param groupPath
    * @return
    */
-  public ApiResponse createGroup(String groupPath) {
+  public ApiResponse createGroup(final String groupPath) {
     return createGroup(groupPath, null);
   }
 
@@ -866,7 +980,9 @@ public class Usergrid {
    * @param groupTitle
    * @return
    */
-  public ApiResponse createGroup(String groupPath, String groupTitle) {
+  public ApiResponse createGroup(final String groupPath,
+                                 final String groupTitle) {
+
     return createGroup(groupPath, groupTitle, null);
   }
 
@@ -878,8 +994,11 @@ public class Usergrid {
    * @param groupName
    * @return
    */
-  public ApiResponse createGroup(String groupPath, String groupTitle, String groupName) {
-    Map<String, Object> data = new HashMap<String, Object>();
+  public ApiResponse createGroup(final String groupPath,
+                                 final String groupTitle,
+                                 final String groupName) {
+
+    Map<String, Object> data = new HashMap<>();
     data.put("type", "group");
     data.put("path", groupPath);
 
@@ -891,7 +1010,7 @@ public class Usergrid {
       data.put("name", groupName);
     }
 
-    return apiRequest(HttpMethod.POST, null, data, organizationId, applicationId, "groups");
+    return apiRequest(HTTP_POST, null, data, organizationId, applicationId, STR_GROUPS);
   }
 
   /**
@@ -901,12 +1020,12 @@ public class Usergrid {
    * @param ql
    * @return
    */
-  public Query queryGroups(String ql) {
-    Map<String, Object> params = new HashMap<String, Object>();
+  public QueryResult queryGroups(final String ql) {
+
+    Map<String, Object> params = new HashMap<>();
     params.put("ql", ql);
-    Query q = queryEntitiesRequest(HttpMethod.GET, params, null, organizationId,
-        applicationId, "groups");
-    return q;
+
+    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, STR_GROUPS);
   }
 
 
@@ -919,14 +1038,12 @@ public class Usergrid {
    * @param connectedEntityId
    * @return
    */
-  public ApiResponse connectEntities(
-      String connectingEntityType,
-      String connectingEntityId,
-      String connectionType,
-      String connectedEntityId) {
-    return apiRequest(HttpMethod.POST, null, null, organizationId, applicationId,
-        connectingEntityType, connectingEntityId, connectionType,
-        connectedEntityId);
+  public ApiResponse connectEntities(final String connectingEntityType,
+                                     final String connectingEntityId,
+                                     final String connectionType,
+                                     final String connectedEntityId) {
+
+    return apiRequest(HTTP_POST, null, null, organizationId, applicationId, connectingEntityType, connectingEntityId, connectionType, connectedEntityId);
   }
 
   /**
@@ -938,13 +1055,29 @@ public class Usergrid {
    * @param connectedEntityId
    * @return
    */
-  public ApiResponse disconnectEntities(String connectingEntityType,
-                                        String connectingEntityId, String connectionType,
-                                        String connectedEntityId) {
-    return apiRequest(HttpMethod.DELETE, null, null, organizationId, applicationId,
-        connectingEntityType, connectingEntityId, connectionType,
-        connectedEntityId);
+  public ApiResponse disconnectEntities(final String connectingEntityType,
+                                        final String connectingEntityId,
+                                        final String connectionType,
+                                        final String connectedEntityId) {
+
+    return apiRequest(HTTP_DELETE, null, null, organizationId, applicationId, connectingEntityType, connectingEntityId, connectionType, connectedEntityId);
   }
+
+
+  /**
+   * @param sourceVertex
+   * @param TargetVertex
+   * @param connetionName
+   * @return
+   */
+  public ApiResponse disconnectEntities(final UsergridEntity sourceVertex,
+                                        final UsergridEntity TargetVertex,
+                                        final String connetionName) {
+
+    return apiRequest(HTTP_DELETE, null, null, organizationId, applicationId, sourceVertex.getType(), sourceVertex.getUuid().toString(), connetionName,
+        TargetVertex.getUuid().toString());
+  }
+
 
   /**
    * QueryResult the connected entities.
@@ -955,21 +1088,21 @@ public class Usergrid {
    * @param ql
    * @return
    */
-  public Query queryEntityConnections(String connectingEntityType,
-                                      String connectingEntityId, String connectionType, String ql) {
-    Map<String, Object> params = new HashMap<String, Object>();
+  public QueryResult queryEntityConnections(final String connectingEntityType,
+                                            final String connectingEntityId,
+                                            final String connectionType, String ql) {
+
+    Map<String, Object> params = new HashMap<>();
     params.put("ql", ql);
-    Query q = queryEntitiesRequest(HttpMethod.GET, params, null,
-        organizationId, applicationId, connectingEntityType, connectingEntityId,
-        connectionType);
-    return q;
+
+    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, connectingEntityType, connectingEntityId, connectionType);
   }
 
   protected String makeLocationQL(float distance, double lattitude,
                                   double longitude, String ql) {
-    String within = String.format("within %d of %d , %d", distance,
-        lattitude, longitude);
+    String within = String.format("within %d of %d , %d", distance, lattitude, longitude);
     ql = ql == null ? within : within + " and " + ql;
+
     return ql;
   }
 
@@ -984,74 +1117,116 @@ public class Usergrid {
    * @param longitude
    * @return
    */
-  public Query queryEntityConnectionsWithinLocation(
-      String connectingEntityType, String connectingEntityId,
-      String connectionType, float distance, float lattitude,
-      float longitude, String ql) {
-    Map<String, Object> params = new HashMap<String, Object>();
-    params.put("ql", makeLocationQL(distance, lattitude, longitude, ql));
-    Query q = queryEntitiesRequest(HttpMethod.GET, params, null, organizationId,
-        applicationId, connectingEntityType, connectingEntityId,
-        connectionType);
-    return q;
+  public QueryResult queryEntityConnectionsWithinLocation(final String connectingEntityType,
+                                                          final String connectingEntityId,
+                                                          final String connectionType,
+                                                          final float distance,
+                                                          float latitude,
+                                                          final float longitude,
+                                                          final String ql) {
+
+    Map<String, Object> params = new HashMap<>();
+    params.put("ql", makeLocationQL(distance, latitude, longitude, ql));
+
+    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, connectingEntityType, connectingEntityId, connectionType);
   }
 
   public static void save(final UsergridEntity usergridEntity) {
 
   }
 
-  public static void initialize(String orgName, String appName) {
-    Client client = getInstance();
-    client.setOrganizationId(orgName);
-    client.setApplicationId(appName);
+  public ApiResponse connectEntities(final UsergridEntity sourceVertex,
+                                     final UsergridEntity TargetVertex,
+                                     final String connetionName) {
+
+    return this.connectEntities(sourceVertex.getType(), sourceVertex.getUuid().toString(), connetionName, TargetVertex.getUuid().toString());
+  }
+
+
+  public ApiResponse queryEdgesForVertex(final String srcType,
+                                         final String srcID) {
+
+    return apiRequest(HTTP_GET, null, null, organizationId, applicationId, srcType, srcID);
+  }
+
+
+  public ApiResponse queryCollections() {
+
+    return apiRequest(HTTP_GET, null, null, this.organizationId, this.applicationId);
+  }
+
+  public ApiResponse queryConnection(final String... segments) {
+
+    String[] paramPath = new String[10];
+    paramPath[0] = this.organizationId;
+    paramPath[1] = this.applicationId;
+    System.arraycopy(segments, 0, paramPath, 2, segments.length);
+
+    return apiRequest(HTTP_GET, null, null, paramPath);
+  }
+
+  public UsergridEntity getEntity(final String s) {
+    return null;
+  }
+
+  private String convertStringArrayToPath(final String[] segments) {
+    return null;
+  }
+
+
+  public QueryResult query(final Query query) {
+
+    String uri = query.toString();
+
+    return null;
+  }
+
+  public ApiResponse put(final UsergridEntity usergridEntity) {
+    return updateEntity(usergridEntity);
+  }
+
+  public ApiResponse post(final UsergridEntity usergridEntity) {
+    return this.createEntity(usergridEntity);
+  }
+
+  public ApiResponse delete(final UsergridEntity usergridEntity) {
+    return this.deleteEntity(usergridEntity.getType(), usergridEntity.getUuid().toString());
   }
 
   public static void initialize(String apiUrl, String orgName, String appName) {
-    Client client = getInstance();
-    client.setApiUrl(apiUrl);
-    client.setOrganizationId(orgName);
-    client.setApplicationId(appName);
+
+    Usergrid client = getInstance(STR_DEFAULT);
+    client.withApiUrl(apiUrl)
+        .withOrganizationId(orgName)
+        .withApplicationId(appName);
   }
 
-  public static Client getInstance(String instanceId) {
-
-    Client client = instance_map.get(instanceId);
-
-    if (client == null) {
-      client = new Client();
-      instance_map.put(instanceId, client);
-    }
-
-    return client;
-  }
-
-  public static Client getInstance() {
-
-    return getInstance("default");
-  }
-
-  public interface Query {
+  public interface QueryResult {
 
     public ApiResponse getResponse();
 
     public boolean more();
 
-    public Query next();
+    public QueryResult next();
 
   }
 
   /**
    * QueryResult object
    */
-  private class EntityQuery implements Query {
-    final HttpMethod method;
+  private class EntityQueryResult implements QueryResult {
+    final String method;
     final Map<String, Object> params;
     final Object data;
     final String[] segments;
     final ApiResponse response;
 
-    private EntityQuery(ApiResponse response, HttpMethod method,
-                        Map<String, Object> params, Object data, String[] segments) {
+    private EntityQueryResult(final ApiResponse response,
+                              final String method,
+                              final Map<String, Object> params,
+                              final Object data,
+                              final String[] segments) {
+
       this.response = response;
       this.method = method;
       this.params = params;
@@ -1059,7 +1234,9 @@ public class Usergrid {
       this.segments = segments;
     }
 
-    private EntityQuery(ApiResponse response, EntityQuery q) {
+    private EntityQueryResult(final ApiResponse response,
+                              final EntityQueryResult q) {
+
       this.response = response;
       method = q.method;
       params = q.params;
@@ -1078,11 +1255,10 @@ public class Usergrid {
      * @return true if the server indicates more results are available
      */
     public boolean more() {
-      if ((response != null) && (response.getCursor() != null)
-          && (response.getCursor().length() > 0)) {
-        return true;
-      }
-      return false;
+
+      return (response != null)
+          && (response.getCursor() != null)
+          && (response.getCursor().length() > 0);
     }
 
     /**
@@ -1090,41 +1266,48 @@ public class Usergrid {
      *
      * @return query that contains results and where to get more from.
      */
-    public Query next() {
+    public QueryResult next() {
+
       if (more()) {
         Map<String, Object> nextParams = null;
+
         if (params != null) {
-          nextParams = new HashMap<String, Object>(params);
+          nextParams = new HashMap<>(params);
+
         } else {
-          nextParams = new HashMap<String, Object>();
+          nextParams = new HashMap<>();
         }
+
         nextParams.put("cursor", response.getCursor());
         ApiResponse nextResponse = apiRequest(method, nextParams, data,
             segments);
-        return new EntityQuery(nextResponse, this);
+        return new EntityQueryResult(nextResponse, this);
       }
+
       return null;
     }
 
   }
 
-  private String normalizeQueuePath(String path) {
-    return arrayToDelimitedString(
-        tokenizeToStringArray(path, "/", true, true), "/");
+  private String normalizeQueuePath(final String path) {
+
+    return arrayToDelimitedString(tokenizeToStringArray(path, "/", true, true), "/");
   }
 
-  public ApiResponse postMessage(String path, Map<String, Object> message) {
-    return apiRequest(HttpMethod.POST, null, message, organizationId, applicationId,
-        "queues", normalizeQueuePath(path));
+  public ApiResponse postMessage(final String path,
+                                 final Map<String, Object> message) {
+
+    return apiRequest(HTTP_POST, null, message, organizationId, applicationId, "queues", normalizeQueuePath(path));
   }
 
-  public ApiResponse postMessage(String path,
-                                 List<Map<String, Object>> messages) {
-    return apiRequest(HttpMethod.POST, null, messages, organizationId, applicationId,
-        "queues", normalizeQueuePath(path));
+  public ApiResponse postMessage(final String path,
+                                 final List<Map<String, Object>> messages) {
+
+    return apiRequest(HTTP_POST, null, messages, organizationId, applicationId, "queues", normalizeQueuePath(path));
   }
 
   public enum QueuePosition {
+
     START("start"), END("end"), LAST("last"), CONSUMER("consumer");
 
     private final String shortName;
@@ -1133,20 +1316,24 @@ public class Usergrid {
       this.shortName = shortName;
     }
 
-    static Map<String, QueuePosition> nameMap = new ConcurrentHashMap<String, QueuePosition>();
+    static Map<String, QueuePosition> nameMap = new ConcurrentHashMap<>();
 
     static {
+
       for (QueuePosition op : EnumSet.allOf(QueuePosition.class)) {
+
         if (op.shortName != null) {
           nameMap.put(op.shortName, op);
         }
       }
     }
 
-    public static QueuePosition find(String s) {
+    public static QueuePosition find(final String s) {
+
       if (s == null) {
         return null;
       }
+
       return nameMap.get(s);
     }
 
@@ -1156,10 +1343,19 @@ public class Usergrid {
     }
   }
 
-  public ApiResponse getMessages(String path, String consumer, UUID last,
-                                 Long time, Integer prev, Integer next, Integer limit,
-                                 QueuePosition pos, Boolean update, Boolean sync) {
-    Map<String, Object> params = new HashMap<String, Object>();
+  public ApiResponse getMessages(final String path,
+                                 final String consumer,
+                                 final UUID last,
+                                 final Long time,
+                                 final Integer prev,
+                                 final Integer next,
+                                 final Integer limit,
+                                 final QueuePosition pos,
+                                 final Boolean update,
+                                 final Boolean sync) {
+
+    Map<String, Object> params = new HashMap<>();
+
     if (consumer != null) {
       params.put("consumer", consumer);
     }
@@ -1187,33 +1383,35 @@ public class Usergrid {
     if (sync != null) {
       params.put("synchronized", sync);
     }
-    return apiRequest(HttpMethod.GET, params, null, organizationId, applicationId,
-        "queues", normalizeQueuePath(path));
+
+    return apiRequest(HTTP_GET, params, null, organizationId, applicationId, "queues", normalizeQueuePath(path));
   }
 
-  public ApiResponse addSubscriber(String publisherQueue,
-                                   String subscriberQueue) {
-    return apiRequest(HttpMethod.POST, null, null, organizationId, applicationId, "queues",
-        normalizeQueuePath(publisherQueue), "subscribers",
-        normalizeQueuePath(subscriberQueue));
+  public ApiResponse addSubscriber(final String publisherQueue,
+                                   final String subscriberQueue) {
+
+    return apiRequest(HTTP_POST, null, null, organizationId, applicationId, "queues", normalizeQueuePath(publisherQueue), "subscribers", normalizeQueuePath(subscriberQueue));
   }
 
-  public ApiResponse removeSubscriber(String publisherQueue,
-                                      String subscriberQueue) {
-    return apiRequest(HttpMethod.DELETE, null, null, organizationId, applicationId,
-        "queues", normalizeQueuePath(publisherQueue), "subscribers",
-        normalizeQueuePath(subscriberQueue));
+  public ApiResponse removeSubscriber(final String publisherQueue,
+                                      final String subscriberQueue) {
+
+    return apiRequest(HTTP_DELETE, null, null, organizationId, applicationId, "queues", normalizeQueuePath(publisherQueue), "subscribers", normalizeQueuePath(subscriberQueue));
   }
 
-  private class QueueQuery implements Query {
-    final HttpMethod method;
+  private class QueueQueryResult implements QueryResult {
+    final String method;
     final Map<String, Object> params;
     final Object data;
     final String queuePath;
     final ApiResponse response;
 
-    private QueueQuery(ApiResponse response, HttpMethod method,
-                       Map<String, Object> params, Object data, String queuePath) {
+    private QueueQueryResult(final ApiResponse response,
+                             final String method,
+                             final Map<String, Object> params,
+                             final Object data,
+                             final String queuePath) {
+
       this.response = response;
       this.method = method;
       this.params = params;
@@ -1221,7 +1419,9 @@ public class Usergrid {
       this.queuePath = normalizeQueuePath(queuePath);
     }
 
-    private QueueQuery(ApiResponse response, QueueQuery q) {
+    private QueueQueryResult(final ApiResponse response,
+                             final QueueQueryResult q) {
+
       this.response = response;
       method = q.method;
       params = q.params;
@@ -1240,11 +1440,10 @@ public class Usergrid {
      * @return true if the server indicates more results are available
      */
     public boolean more() {
-      if ((response != null) && (response.getCursor() != null)
-          && (response.getCursor().length() > 0)) {
-        return true;
-      }
-      return false;
+
+      return (response != null)
+          && (response.getCursor() != null)
+          && (response.getCursor().length() > 0);
     }
 
     /**
@@ -1252,33 +1451,40 @@ public class Usergrid {
      *
      * @return query that contains results and where to get more from.
      */
-    public Query next() {
+    public QueryResult next() {
+
       if (more()) {
+
         Map<String, Object> nextParams = null;
+
         if (params != null) {
-          nextParams = new HashMap<String, Object>(params);
+
+          nextParams = new HashMap<>(params);
+
         } else {
-          nextParams = new HashMap<String, Object>();
+
+          nextParams = new HashMap<>();
         }
+
         nextParams.put("start", response.getCursor());
-        ApiResponse nextResponse = apiRequest(method, nextParams, data,
-            queuePath);
-        return new QueueQuery(nextResponse, this);
+        ApiResponse nextResponse = apiRequest(method, nextParams, data, queuePath);
+
+        return new QueueQueryResult(nextResponse, this);
       }
+
       return null;
     }
 
   }
 
-  public Query queryQueuesRequest(HttpMethod method,
-                                  Map<String, Object> params, Object data, String queuePath) {
+  public QueryResult queryQueuesRequest(final String method,
+                                        final Map<String, Object> params,
+                                        final Object data,
+                                        final String queuePath) {
+
     ApiResponse response = apiRequest(method, params, data, queuePath);
-    return new QueueQuery(response, method, params, data, queuePath);
+
+    return new QueueQueryResult(response, method, params, data, queuePath);
   }
 
-  public class QueryBuilder {
-    public QueryBuilder collection(String pets) {
-      return this;
-    }
-  }
 }

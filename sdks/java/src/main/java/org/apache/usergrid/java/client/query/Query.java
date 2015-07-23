@@ -106,7 +106,7 @@ public class Query {
     return escapedString;
   }
 
-  public Client.QueryResult get() {
+  public Usergrid.QueryResult get() {
     return Usergrid.getInstance().query(this);
   }
 

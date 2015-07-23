@@ -32,8 +32,10 @@ import static org.apache.usergrid.java.client.utils.MapUtils.newMapWithoutKeys;
 
 public class UsergridEntity {
 
-  public final static String PROPERTY_UUID = "uuid";
+  public static final String STR_UUID = "uuid";
+  public final static String PROPERTY_UUID = STR_UUID;
   public final static String PROPERTY_TYPE = "type";
+  public static final String STR_NAME = "name";
 
   public static Map<String, Class<? extends UsergridEntity>> CLASS_FOR_ENTITY_TYPE = new HashMap<String, Class<? extends UsergridEntity>>();
 
@@ -61,7 +63,7 @@ public class UsergridEntity {
 
   @JsonIgnore
   public List<String> getPropertyNames() {
-    List<String> properties = new ArrayList<String>();
+    List<String> properties = new ArrayList<>();
     properties.add(PROPERTY_TYPE);
     properties.add(PROPERTY_UUID);
     return properties;
@@ -181,7 +183,7 @@ public class UsergridEntity {
   }
 
   public static <T extends UsergridEntity> List<T> toType(List<UsergridEntity> entities,
-                                                  Class<T> t) {
+                                                          Class<T> t) {
     List<T> l = new ArrayList<T>(entities != null ? entities.size() : 0);
     if (entities != null) {
       for (UsergridEntity usergridEntity : entities) {
@@ -200,7 +202,9 @@ public class UsergridEntity {
     //todo error checking on response
     System.out.println(response);
 
-    String uuid = response.getFirstEntity().getStringProperty("uuid");
+    UsergridEntity first = response.getFirstEntity();
+
+    String uuid = first.getStringProperty(STR_UUID);
     this.setUuid(UUID.fromString(uuid));
   }
 
@@ -216,18 +220,20 @@ public class UsergridEntity {
     return JsonUtils.getStringProperty(this.properties, name);
   }
 
-  public <T> T getEntityProperty(String name){
+  public <T> T getEntityProperty(String name) {
     return JsonUtils.getProperty(this.properties, name);
   }
 
 
   public void post() throws ClientException {
+
     ApiResponse response = Usergrid.getInstance().post(this);
 
     //todo error checking on response
 
     System.out.println(response);
-    String uuid = response.getFirstEntity().getStringProperty("uuid");
+    UsergridEntity first = response.getFirstEntity();
+    String uuid = first.getStringProperty(STR_UUID);
     this.setUuid(UUID.fromString(uuid));
   }
 
@@ -239,7 +245,7 @@ public class UsergridEntity {
 
     //todo error checking on response
     System.out.println(response);
-    String uuid = response.getFirstEntity().getStringProperty("uuid");
+    String uuid = response.getFirstEntity().getStringProperty(STR_UUID);
     // make sure there is an entity and a uuid
     this.setUuid(UUID.fromString(uuid));
   }
@@ -250,17 +256,16 @@ public class UsergridEntity {
 
     ApiResponse response = Usergrid.getInstance().connectEntities(
         this.getType(),
-        this.getUuid() != null ? this.getUuid().toString() : this.getStringProperty("name"),
+        this.getUuid() != null ? this.getUuid().toString() : this.getStringProperty(STR_NAME),
         connectionType,
-        target.getUuid() != null ? target.getUuid().toString() : target.getStringProperty("name"));
+        target.getUuid() != null ? target.getUuid().toString() : target.getStringProperty(STR_NAME));
 
     //todo - check to make sure it worked
 
-    Connection connection = new Connection(this, connectionType, target);
-    return connection;
+    return new Connection(this, connectionType, target);
   }
 
-  public static UsergridEntity copyOf(UsergridEntity pet) {
+  public static UsergridEntity copyOf(UsergridEntity fromEntity) {
     return null;
   }
 }

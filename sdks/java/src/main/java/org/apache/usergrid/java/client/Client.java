@@ -48,6 +48,7 @@ import org.apache.usergrid.java.client.response.ApiResponse;
 public class Client {
 
   private static final Logger log = LoggerFactory.getLogger(Client.class);
+  public static final String STRING_UUID = "uuid";
 
   public static boolean FORCE_PUBLIC_API = false;
 
@@ -281,27 +282,32 @@ public class Client {
    */
   public <T> T httpRequest(HttpMethod method, Class<T> cls,
                            Map<String, Object> params, Object data, String... segments) {
+
     HttpHeaders requestHeaders = new HttpHeaders();
-    requestHeaders.setAccept(Collections
-        .singletonList(MediaType.APPLICATION_JSON));
+    requestHeaders.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
     if (accessToken != null) {
       String auth = "Bearer " + accessToken;
       requestHeaders.set("Authorization", auth);
       log.info("Authorization: " + auth);
     }
+
     String url = path(apiUrl, segments);
 
     MediaType contentType = MediaType.APPLICATION_JSON;
+
     if (method.equals(HttpMethod.POST) && isEmpty(data) && !isEmpty(params)) {
       data = encodeParams(params);
       contentType = MediaType.APPLICATION_FORM_URLENCODED;
     } else {
       url = addQueryParams(url, params);
     }
+
     requestHeaders.setContentType(contentType);
     HttpEntity<?> requestEntity = null;
 
     if (method.equals(HttpMethod.POST) || method.equals(HttpMethod.PUT)) {
+
       if (isEmpty(data)) {
         data = JsonNodeFactory.instance.objectNode();
       }
@@ -592,7 +598,7 @@ public class Client {
     }
 
     String name = e.getStringProperty("name");
-    String uuid = e.getStringProperty("uuid");
+    String uuid = e.getStringProperty(STRING_UUID);
 
     if (name == null && uuid == null)
       return this.createEntity(e);
@@ -607,10 +613,8 @@ public class Client {
 
   public ApiResponse updateEntity(Map<String, Object> properties) {
     assertValidApplicationId();
-    String uuid = properties.get("uuid").toString();
-    String entityIdentifier = uuid;
     return apiRequest(HttpMethod.PUT, null, properties,
-        organizationId, applicationId, properties.get("type").toString(), entityIdentifier);
+        organizationId, applicationId, properties.get("type").toString(), properties.get(STRING_UUID).toString());
   }
 
   /**

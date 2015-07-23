@@ -18,13 +18,20 @@ public class ApigeeSDK {
 
   private static Map<String, ApiClient> apiClients_;
 
-  public static Client initUsergridClient(String apiUrl, String orgName, String appName) {
+  public static Usergrid initUsergridClient(String apiUrl, String orgName, String appName) {
     Usergrid.initialize(apiUrl, orgName, appName);
     return Usergrid.getInstance();
   }
 
   public static ApiClient initApiClient(String id) {
-    return null;
+    ApiClient client = apiClients_.get(id);
+
+    if (client == null) {
+      client = new ApiClient();
+      apiClients_.put(id, client);
+    }
+
+    return client;
   }
 
   public static InsightsClient initInsightsClient(String myOtherAPI) {
