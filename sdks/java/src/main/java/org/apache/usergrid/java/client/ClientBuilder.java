@@ -7,4 +7,9 @@ public class ClientBuilder {
 
   private ClientBuilder()
   {}
+
+  public static Client newClient() {
+    return null;
+
+  }
 }
