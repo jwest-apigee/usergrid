@@ -1,5 +1,4 @@
 import com.fasterxml.jackson.databind.JsonNode;
-import org.apache.usergrid.java.client.Client;
 import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.response.ApiResponse;

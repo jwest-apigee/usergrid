@@ -309,14 +309,14 @@ public class Usergrid {
    */
   public ApiResponse apiRequest(final String method,
                                 final Map<String, Object> params,
-                                Object data,
-                                String... segments) {
+                                final Object data,
+                                final String... segments) {
 
     //https://jersey.java.net/documentation/latest/client.html
 
     // required to appropriately set content-length when there is no content.  blank string results in '0'
     //   whereas null results in no header
-    data = data == null ? STR_BLANK : data;
+    Object entity = data == null ? STR_BLANK : data;
 
     String contentType = MediaType.APPLICATION_JSON;
 
@@ -326,7 +326,7 @@ public class Usergrid {
       webTarget = webTarget.path(segment);
 
     if (method.equals(HTTP_POST) && isEmpty(data) && !isEmpty(params)) {
-      data = encodeParams(params);
+      entity = encodeParams(params);
       contentType = MediaType.APPLICATION_FORM_URLENCODED;
 
     } else {
@@ -346,7 +346,7 @@ public class Usergrid {
       invocationBuilder.header(HEADER_AUTHORIZATION, auth);
     }
 
-    return invocationBuilder.method(method, Entity.entity(data, contentType), ApiResponse.class);
+    return invocationBuilder.method(method, Entity.entity(entity, contentType), ApiResponse.class);
   }
 
 
@@ -630,6 +630,33 @@ public class Usergrid {
   }
 
   /**
+   * Create a new e on the server.
+   *
+   * @param e
+   * @return an ApiResponse with the new e in it.
+   */
+  public ApiResponse save(final UsergridEntity e) {
+
+    if (isEmpty(e.getType())) {
+      throw new IllegalArgumentException("UsergridEntity is required to have a 'type' property and does not");
+    }
+
+    assertInitialized();
+
+    String name = e.getStringProperty("name");
+    String uuid = e.getStringProperty("uuid");
+
+    String entityIdentifier = (uuid != null ? uuid : name);
+
+    if (entityIdentifier == null) {
+      return this.post(e);
+    }
+
+    return this.put(e);
+  }
+
+
+  /**
    * Create a new entity on the server from a set of properties. Properties
    * must include a "type" property.
    *
@@ -717,7 +744,7 @@ public class Usergrid {
    */
   public QueryResult queryActivityFeedForUser(final String userId) {
 
-    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, STR_USERS, userId, "feed");
+    return queryEntities(HTTP_GET, null, null, organizationId, applicationId, STR_USERS, userId, "feed");
   }
 
   /**
@@ -847,7 +874,7 @@ public class Usergrid {
    */
   public QueryResult queryActivity() {
 
-    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, "activities");
+    return queryEntities(HTTP_GET, null, null, organizationId, applicationId, "activities");
   }
 
 
@@ -859,7 +886,7 @@ public class Usergrid {
    */
   public QueryResult queryActivityFeedForGroup(final String groupId) {
 
-    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, STR_GROUPS, groupId, "feed");
+    return queryEntities(HTTP_GET, null, null, organizationId, applicationId, STR_GROUPS, groupId, "feed");
   }
 
   /**
@@ -873,10 +900,10 @@ public class Usergrid {
    * @param segments
    * @return
    */
-  public QueryResult queryEntitiesRequest(final String method,
-                                          final Map<String, Object> params,
-                                          final Object data,
-                                          final String... segments) {
+  public QueryResult queryEntities(final String method,
+                                   final Map<String, Object> params,
+                                   final Object data,
+                                   final String... segments) {
 
     return new EntityQueryResult(apiRequest(method, params, data, segments), method, params, data, segments);
   }
@@ -888,7 +915,7 @@ public class Usergrid {
    */
   public QueryResult queryUsers() {
 
-    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, STR_USERS);
+    return queryEntities(HTTP_GET, null, null, organizationId, applicationId, STR_USERS);
   }
 
   /**
@@ -903,7 +930,7 @@ public class Usergrid {
     Map<String, Object> params = new HashMap<>();
     params.put("ql", ql);
 
-    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, STR_USERS);
+    return queryEntities(HTTP_GET, params, null, organizationId, applicationId, STR_USERS);
   }
 
   /**
@@ -921,11 +948,11 @@ public class Usergrid {
     Map<String, Object> params = new HashMap<>();
     params.put("ql", this.makeLocationQL(distance, lattitude, longitude, ql));
 
-    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, STR_USERS);
+    return queryEntities(HTTP_GET, params, null, organizationId, applicationId, STR_USERS);
   }
 
   public ApiResponse getEntity(final String type,
-                                 final String id) {
+                               final String id) {
 
     return apiRequest(HTTP_GET, null, null, organizationId, applicationId, type, id);
   }
@@ -944,7 +971,7 @@ public class Usergrid {
    */
   public QueryResult queryUsersForGroup(final String groupId) {
 
-    return queryEntitiesRequest(HTTP_GET, null, null, organizationId, applicationId, STR_GROUPS, groupId, STR_USERS);
+    return queryEntities(HTTP_GET, null, null, organizationId, applicationId, STR_GROUPS, groupId, STR_USERS);
   }
 
   /**
@@ -956,6 +983,7 @@ public class Usergrid {
    */
   public ApiResponse addUserToGroup(final String userId,
                                     final String groupId) {
+
 
     return apiRequest(HTTP_POST, null, null, organizationId, applicationId, STR_GROUPS, groupId, STR_USERS, userId);
   }
@@ -1025,7 +1053,7 @@ public class Usergrid {
     Map<String, Object> params = new HashMap<>();
     params.put("ql", ql);
 
-    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, STR_GROUPS);
+    return queryEntities(HTTP_GET, params, null, organizationId, applicationId, STR_GROUPS);
   }
 
 
@@ -1095,7 +1123,7 @@ public class Usergrid {
     Map<String, Object> params = new HashMap<>();
     params.put("ql", ql);
 
-    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, connectingEntityType, connectingEntityId, connectionType);
+    return queryEntities(HTTP_GET, params, null, organizationId, applicationId, connectingEntityType, connectingEntityId, connectionType);
   }
 
   protected String makeLocationQL(float distance, double lattitude,
@@ -1128,12 +1156,9 @@ public class Usergrid {
     Map<String, Object> params = new HashMap<>();
     params.put("ql", makeLocationQL(distance, latitude, longitude, ql));
 
-    return queryEntitiesRequest(HTTP_GET, params, null, organizationId, applicationId, connectingEntityType, connectingEntityId, connectionType);
+    return queryEntities(HTTP_GET, params, null, organizationId, applicationId, connectingEntityType, connectingEntityId, connectionType);
   }
 
-  public static void save(final UsergridEntity usergridEntity) {
-
-  }
 
   public ApiResponse connectEntities(final UsergridEntity sourceVertex,
                                      final UsergridEntity TargetVertex,
@@ -1203,7 +1228,7 @@ public class Usergrid {
 
   public interface QueryResult {
 
-    public ApiResponse getResponse();
+    public ApiResponse getLastResponse();
 
     public boolean more();
 
@@ -1215,29 +1240,30 @@ public class Usergrid {
    * QueryResult object
    */
   private class EntityQueryResult implements QueryResult {
+
     final String method;
     final Map<String, Object> params;
     final Object data;
     final String[] segments;
-    final ApiResponse response;
+    final ApiResponse lastResponse;
 
-    private EntityQueryResult(final ApiResponse response,
+    private EntityQueryResult(final ApiResponse lastResponse,
                               final String method,
                               final Map<String, Object> params,
                               final Object data,
                               final String[] segments) {
 
-      this.response = response;
+      this.lastResponse = lastResponse;
       this.method = method;
       this.params = params;
       this.data = data;
       this.segments = segments;
     }
 
-    private EntityQueryResult(final ApiResponse response,
+    private EntityQueryResult(final ApiResponse lastResponse,
                               final EntityQueryResult q) {
 
-      this.response = response;
+      this.lastResponse = lastResponse;
       method = q.method;
       params = q.params;
       data = q.data;
@@ -1245,10 +1271,10 @@ public class Usergrid {
     }
 
     /**
-     * @return the api response of the last request
+     * @return the api lastResponse of the last request
      */
-    public ApiResponse getResponse() {
-      return response;
+    public ApiResponse getLastResponse() {
+      return lastResponse;
     }
 
     /**
@@ -1256,9 +1282,9 @@ public class Usergrid {
      */
     public boolean more() {
 
-      return (response != null)
-          && (response.getCursor() != null)
-          && (response.getCursor().length() > 0);
+      return (lastResponse != null)
+          && (lastResponse.getCursor() != null)
+          && (lastResponse.getCursor().length() > 0);
     }
 
     /**
@@ -1269,18 +1295,22 @@ public class Usergrid {
     public QueryResult next() {
 
       if (more()) {
+
         Map<String, Object> nextParams = null;
 
         if (params != null) {
+
           nextParams = new HashMap<>(params);
 
         } else {
+
           nextParams = new HashMap<>();
         }
 
-        nextParams.put("cursor", response.getCursor());
-        ApiResponse nextResponse = apiRequest(method, nextParams, data,
-            segments);
+        nextParams.put("cursor", lastResponse.getCursor());
+
+        ApiResponse nextResponse = apiRequest(method, nextParams, data, segments);
+
         return new EntityQueryResult(nextResponse, this);
       }
 
@@ -1430,9 +1460,9 @@ public class Usergrid {
     }
 
     /**
-     * @return the api response of the last request
+     * @return the api lastResponse of the last request
      */
-    public ApiResponse getResponse() {
+    public ApiResponse getLastResponse() {
       return response;
     }
 

@@ -1,21 +1,20 @@
 import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.query.Query;
-//import org.apache.usergrid.java.client.query
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Properties;
-import java.util.UUID;
+
+//import org.apache.usergrid.java.client.query
 
 /**
  * Created by ApigeeCorporation on 6/26/15.
  */
-public class ExampleClientV2 {
+public class BasicExample {
 
   public static void main(String[] args) {
-
     Properties props = new Properties();
     FileInputStream f = null;
 
@@ -35,19 +34,13 @@ public class ExampleClientV2 {
     String client_secret = props.getProperty("usergrid.client_secret");
     String apiUrl = props.getProperty("usergrid.apiUrl");
 
-    // ignore above...
-
-    // below is the sample code
 
     Usergrid.initialize(apiUrl, orgName, appName);
 
-    Usergrid client = Usergrid.getInstance();
-
     Usergrid brandon = Usergrid.getInstance("Brandon's App");
-    brandon.withApplicationId("Brandon");
-
     Usergrid jeff = Usergrid.getInstance("Jeff's App");
     Usergrid robert = Usergrid.getInstance("Robert's App");
+
 
     UsergridEntity jeffCat = new UsergridEntity("pet");
     jeffCat.setProperty("name", "max");
@@ -56,9 +49,12 @@ public class ExampleClientV2 {
     jeffCat.setProperty("owner", (String) null);
     jeffCat.save(); // PUT if by name/uuid, otherwise POST
 
-    jeffCat.post(); // POST to default client to create, fails if exists?
+//    jeffCat.post(); // POST to default client to create, fails if exists?
+    jeffCat.setProperty("owner", "Jeff");
     jeffCat.put(); // PUT to default client to update, fails if doesn't exist?
-    jeffCat.delete(); // DELETE to default client
+//    jeffCat.delete(); // DELETE to default client
+//    pet.patch(); // PATCH to update individual fields?
+
 
     UsergridEntity owner = new UsergridEntity();
     owner.changeType("owner");
@@ -67,9 +63,6 @@ public class ExampleClientV2 {
     owner.save();
 
     owner.connect(jeffCat, "owns");
-
-    client.connectEntities(jeffCat, owner, "ownedBy");
-    client.connectEntities(owner, jeffCat, "owns");
 
     Query q = new Query.QueryBuilder()
         .collection("pets")

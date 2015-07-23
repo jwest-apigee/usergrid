@@ -194,7 +194,7 @@ public class UsergridEntity {
   }
 
   public void save() throws ClientException {
-    ApiResponse response = Usergrid.getInstance().updateEntity(this);
+    ApiResponse response = Usergrid.getInstance().save(this);
 
     //todo error checking on response
     System.out.println(response);
