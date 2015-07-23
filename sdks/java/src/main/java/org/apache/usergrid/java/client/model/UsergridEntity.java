@@ -67,6 +67,9 @@ public class UsergridEntity {
     return properties;
   }
 
+  public void setType(String type) {
+    setStringProperty(properties, PROPERTY_TYPE, type);
+  }
   public String getType() {
     return JsonUtils.getStringProperty(properties, PROPERTY_TYPE);
   }
