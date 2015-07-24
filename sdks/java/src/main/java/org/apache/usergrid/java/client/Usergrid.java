@@ -346,7 +346,11 @@ public class Usergrid {
       invocationBuilder.header(HEADER_AUTHORIZATION, auth);
     }
 
-    return invocationBuilder.method(method, Entity.entity(data, contentType), ApiResponse.class);
+//    System.out.println(invocationBuilder.method(method, Entity.entity(encodeParamsparams, MediaType.APPLICATION_JSON), javax.ws.rs.core.Response.class));
+
+//    return null;
+    System.out.println(invocationBuilder.method(method, Entity.entity(params, MediaType.APPLICATION_JSON), ApiResponse.class));
+    return invocationBuilder.method(method, Entity.entity(params, MediaType.APPLICATION_JSON), ApiResponse.class);
   }
 
 
