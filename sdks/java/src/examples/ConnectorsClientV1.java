@@ -1,5 +1,5 @@
 import org.apache.usergrid.java.client.Client;
-import org.apache.usergrid.java.client.entities.Entity;
+import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.response.ApiResponse;
 
 /**
@@ -25,7 +25,7 @@ public class  ConnectorsClientV1 {
 
     System.out.println(token);
 
-    Entity e = new Entity("pet");
+    UsergridEntity e = new UsergridEntity("pet");
 
     e.setProperty("name", "max");
     e.setProperty("age", 15);

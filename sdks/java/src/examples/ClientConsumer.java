@@ -1,12 +1,4 @@
-import org.apache.usergrid.java.client.Client;
-import org.apache.usergrid.java.client.UGConnection;
-import org.apache.usergrid.java.client.UsergridClient;
-import org.apache.usergrid.java.client.NewClientBuilder;
-import org.apache.usergrid.java.client.entities.Entity;
-import org.apache.usergrid.java.client.model.UGEntity;
-
-import java.util.HashMap;
-import java.util.Map;
+import org.apache.usergrid.java.client.model.UsergridEntity;
 
 /**
  * Created by ApigeeCorporation on 6/23/15.
@@ -22,19 +14,19 @@ public class ClientConsumer {
 //    .build();
 
     //easily delete entity by UUID
-//    Entity.UUID("<uuid>").delete();
-//    Entity.UUID("<uuid>").get();
-//    Entity.Type("pets"').UUID("<uuid>").get();
-    // Entity("Pets", "<uuid>").delete()
-//    Entity.Type("pets").Name("<name>").get();
+//    UsergridEntity.UUID("<uuid>").delete();
+//    UsergridEntity.UUID("<uuid>").get();
+//    UsergridEntity.Type("pets"').UUID("<uuid>").get();
+    // UsergridEntity("Pets", "<uuid>").delete()
+//    UsergridEntity.Type("pets").Name("<name>").get();
 
     // this incurs object creation and GC cost
-    new Entity("<uuid>").delete();
+    new UsergridEntity("<uuid>").delete();
 
     // DAO pattern: entity
-//    Entity e = new Entity("<uuid>");
+//    UsergridEntity e = new UsergridEntity("<uuid>");
 //    e.collection("pets");
-//    e.setType("pets");
+//    e.changeType("pets");
 //    e.setProperty("breed", "terrier");
 //    e.setProperty("color", "black");
 //    e.setProperty("weight", "black");

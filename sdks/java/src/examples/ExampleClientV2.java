@@ -1,13 +1,14 @@
+import com.apigee.sdk.*;
 import org.apache.usergrid.java.client.Client;
-import org.apache.usergrid.java.client.SingletonClient;
-import org.apache.usergrid.java.client.entities.Entity;
+import org.apache.usergrid.java.client.Usergrid;
+import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.query.Query;
-import org.apache.usergrid.java.client.response.ApiResponse;
 //import org.apache.usergrid.java.client.query
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Properties;
 
 /**
@@ -20,7 +21,7 @@ public class ExampleClientV2 {
     FileInputStream f = null;
 
     try {
-      f = new FileInputStream("/Users/ayeshadastagiri/incubator-usergrid/sdks/java/src/main/resources/example.properties");
+      f = new FileInputStream("/Users/ApigeeCorporation/code/usergrid/myfork/incubator-usergrid/sdks/java/src/main/resources/secure/api-connectors.properties");
       props.load(f);
     } catch (FileNotFoundException e) {
       e.printStackTrace();
@@ -39,43 +40,90 @@ public class ExampleClientV2 {
 
     // below is the sample code
 
-    SingletonClient.initialize(apiUrl, orgName, appName);
-//    Apigee.initializeBaaSClient(apiUrl, orgName, appName);
-    Client client = SingletonClient.getInstance();
 
-    ApiResponse response = client.authorizeAppClient(client_id, client_secret);
+    Usergrid ugClient = ApigeeSDK.initUsergridClient(apiUrl, orgName, appName);
 
-    System.out.println(response);
+    ApiClient apiClient1 = ApigeeSDK.initApiClient("MyApi1");
+    ApiClient apiClient2 = ApigeeSDK.initApiClient("MyOtherAPI");
+    InsightsClient insightsClient = ApigeeSDK.initInsightsClient("MyOtherAPI");
 
-    String token = client.getAccessToken();
+    HashMap<String, Object> properties = new HashMap<String, Object>();
+    properties.put("DefaultClientId", "Jeff");
+    properties.put("DefaultClientSecret", "Jeff");
+    properties.put("DefaultApiKey", "Jeff");
+    properties.put("DefaultAPIClient", apiClient1);
 
-    System.out.println(token);
+//    ApigeeSDK.defaults("CachingStrategy", new HttpCompliantCache("name"));
 
-    Entity pet = new Entity();
-    pet.setType("pet");
-    pet.setProperty("name", "max");
-    pet.setProperty("age", 15);
-    pet.setProperty("owner", (String) null);
-    pet.save(); // PUT if by name/uuid, otherwise POST
+    ApigeeSDK.initialize(properties);
 
+    String authorizationURL = "https://www.example.com/oauth2/authorize",
+        tokenURL = "https://www.example.com/oauth2/token",
+        clientID = "EXAMPLE_CLIENT_ID",
+        clientSecret = "EXAMPLE_CLIENT_SECRET",
+        callbackURL = "http://localhost:3000/auth/example/callback";
+
+
+    apiClient1.setAuthenticationStrategy(new OAuthAuthenticationStrategy(
+        authorizationURL,
+        tokenURL,
+        clientID,
+        clientSecret,
+        callbackURL
+    ));
+
+    apiClient1.setCachingStrategy(new HttpCompliantCache("name"));
+
+    ApigeeSDK.ApiClient("MyApi1").setCachingStrategy(new HttpCompliantCache("name"));
+
+
+//    Client client = Usergrid.getInstance();
+//
+//    ApiResponse response = client.authorizeAppClient(client_id, client_secret);
+
+//    System.out.println(response);
+//
+//    String token = client.getAccessToken();
+//
+//    System.out.println(token);
+
+    Usergrid.initialize(apiUrl, orgName, appName);
+
+    Usergrid brandon = Usergrid.getInstance("Brandon's App");
+    Usergrid jeff = Usergrid.getInstance("Jeff's App");
+    Usergrid robert  = Usergrid.getInstance("Robert's App");
+
+
+    UsergridEntity jeffCat = new UsergridEntity("pet");
+    jeffCat.setProperty("name", "max");
+    jeffCat.setProperty("age", 15);
+    jeffCat.setProperty("weight", 21);
+    jeffCat.setProperty("owner", (String) null);
+    jeffCat.save(); // PUT if by name/uuid, otherwise POST
+
+    UsergridEntity brandonCat =  UsergridEntity.copyOf(jeffCat);
+
+    jeffCat.post(); // POST to default client to create, fails if exists?
+    jeffCat.put(); // PUT to default client to update, fails if doesn't exist?
+    jeffCat.delete(); // DELETE to default client
 //    pet.patch(); // PATCH to update individual fields?
-    pet.post(); // POST to create, fails if exists?
-    pet.put(); // PUT to update, fails if doesn't exist?
-    pet.delete(); // DELETE
 
-    Entity owner = new Entity();
-    owner.setType("owner");
+
+    UsergridEntity owner = new UsergridEntity();
+    owner.changeType("owner");
     owner.setProperty("name", "jeff");
     owner.setProperty("age", 15);
     owner.save();
+
+    owner.connect(jeffCat, "owns");
 
     // consider for v2 api
     //    /_entities/{collection}:{name}
     //    /_entities/{uuid}
 
-    owner.connect(pet, "owns");
-    client.connectEntities(pet, owner, "ownedBy");
-    client.connectEntities(owner, pet, "owns");
+
+//    client.connectEntities(pet, owner, "ownedBy");
+//    client.connectEntities(owner, pet, "owns");
 
     Query q = new Query.QueryBuilder()
         .collection("pets")

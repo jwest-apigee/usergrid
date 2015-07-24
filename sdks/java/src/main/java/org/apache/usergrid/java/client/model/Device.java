@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.usergrid.java.client.entities;
+package org.apache.usergrid.java.client.model;
 
 import static com.fasterxml.jackson.databind.annotation.JsonSerialize.Inclusion.NON_NULL;
-import static org.apache.usergrid.java.client.utils.JsonUtils.getStringProperty;
 import static org.apache.usergrid.java.client.utils.JsonUtils.setStringProperty;
 
 import java.util.List;
@@ -26,7 +25,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.apache.usergrid.java.client.utils.JsonUtils;
 
-public class Device extends Entity {
+public class Device extends UsergridEntity {
 
 	public final static String ENTITY_TYPE = "device";
 
@@ -34,13 +33,13 @@ public class Device extends Entity {
 
 	public Device() {
 		super();
-		setType(ENTITY_TYPE);
+		changeType(ENTITY_TYPE);
 	}
 
-	public Device(Entity entity) {
+	public Device(UsergridEntity usergridEntity) {
 		super();
-		properties = entity.properties;
-		setType(ENTITY_TYPE);
+		properties = usergridEntity.properties;
+		changeType(ENTITY_TYPE);
 	}
 
 	@Override

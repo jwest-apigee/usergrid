@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.usergrid.java.client.entities;
+package org.apache.usergrid.java.client.model;
 
 import static com.fasterxml.jackson.databind.annotation.JsonSerialize.Inclusion.NON_NULL;
 import static org.apache.usergrid.java.client.utils.JsonUtils.getBooleanProperty;
-import static org.apache.usergrid.java.client.utils.JsonUtils.getStringProperty;
 import static org.apache.usergrid.java.client.utils.JsonUtils.setBooleanProperty;
 import static org.apache.usergrid.java.client.utils.JsonUtils.setStringProperty;
 
@@ -28,7 +27,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.apache.usergrid.java.client.utils.JsonUtils;
 
-public class User extends Entity {
+public class User extends UsergridEntity {
 
 	public final static String ENTITY_TYPE = "user";
 
@@ -44,13 +43,13 @@ public class User extends Entity {
 
 	public User() {
 		super();
-		setType(ENTITY_TYPE);
+		changeType(ENTITY_TYPE);
 	}
 
-	public User(Entity entity) {
+	public User(UsergridEntity usergridEntity) {
 		super();
-		properties = entity.properties;
-		setType(ENTITY_TYPE);
+		properties = usergridEntity.properties;
+		changeType(ENTITY_TYPE);
 	}
 
 	@Override

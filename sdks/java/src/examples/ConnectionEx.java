@@ -1,14 +1,13 @@
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.usergrid.java.client.Client;
-import org.apache.usergrid.java.client.SingletonClient;
-import org.apache.usergrid.java.client.entities.Entity;
+import org.apache.usergrid.java.client.Usergrid;
+import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.response.ApiResponse;
 
 import javax.script.ScriptException;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.*;
 
 /**
@@ -49,8 +48,8 @@ public class ConnectionEx {
         String client_secret = props.getProperty("usergrid.client_secret");
         String apiUrl = props.getProperty("usergrid.apiUrl");
 
-        SingletonClient.initialize(apiUrl, orgName, appName);
-        Client client = SingletonClient.getInstance();
+        Usergrid.initialize(apiUrl, orgName, appName);
+        Usergrid client = Usergrid.getInstance();
 
         ApiResponse response = client.authorizeAppClient(client_id, client_secret);
 
@@ -60,56 +59,56 @@ public class ConnectionEx {
 
         System.out.println(token);
 
-        Entity person1 = new Entity();
-        Entity person2 = new Entity();
-        Entity person3 = new Entity();
-        Entity person4 = new Entity();
+        UsergridEntity person1 = new UsergridEntity();
+        UsergridEntity person2 = new UsergridEntity();
+        UsergridEntity person3 = new UsergridEntity();
+        UsergridEntity person4 = new UsergridEntity();
 
-        person1.setType("people");
+        person1.changeType("people");
         person1.setProperty("name", "A");
         person1.setProperty("age", 20);
         person1.save();
 
-        person2.setType("people");
+        person2.changeType("people");
         person2.setProperty("name", "B");
         person2.setProperty("age", 21);
         person2.save();
 
-        person3.setType("people");
+        person3.changeType("people");
         person3.setProperty("name", "C");
         person3.setProperty("age", 22);
         person3.save();
 
-        person4.setType("people");
+        person4.changeType("people");
         person4.setProperty("name", "D");
         person4.setProperty("age", 23);
         person4.save();
 
 
 
-        Entity rest1 = new Entity();
-        Entity rest2 = new Entity();
-        Entity rest3 = new Entity();
-        Entity rest4 = new Entity();
+        UsergridEntity rest1 = new UsergridEntity();
+        UsergridEntity rest2 = new UsergridEntity();
+        UsergridEntity rest3 = new UsergridEntity();
+        UsergridEntity rest4 = new UsergridEntity();
 
 
 
-        rest1.setType("Restaurants");
+        rest1.changeType("Restaurants");
         rest1.setProperty("name", "Amici");
         rest1.setProperty("Location", "San Jose");
         rest1.save();
 
-        rest2.setType("Restaurants");
+        rest2.changeType("Restaurants");
         rest2.setProperty("name", "Yard House");
         rest2.setProperty("Location", "LA");
         rest2.save();
 
-        rest3.setType("Restaurants");
+        rest3.changeType("Restaurants");
         rest3.setProperty("name", "PizzaStudio");
         rest3.setProperty("Location", "LA");
         rest3.save();
 
-        rest4.setType("Restaurants");
+        rest4.changeType("Restaurants");
         rest4.setProperty("name", "CPK");
         rest4.setProperty("Location", "San Jose");
         rest4.save();
@@ -134,10 +133,10 @@ public class ConnectionEx {
         System.out.println(c1.getLastEntity().getStringProperty("name"));
 
         System.out.println(c1.getTimestamp()); // returns timestamp
-        Entity entity1 = c3.getEntities().get(0); // returns timestamp
+        UsergridEntity usergridEntity1 = c3.getEntities().get(0); // returns timestamp
 
-        System.out.println(entity1.getStringProperty("name"));
-        System.out.println(entity1.getProperties().get("metadata").get("connecting").get("follows"));
+        System.out.println(usergridEntity1.getStringProperty("name"));
+        System.out.println(usergridEntity1.getProperties().get("metadata").get("connecting").get("follows"));
 
         System.out.println(c3.getTimestamp());
 
