@@ -189,7 +189,6 @@ public class Entity {
     ApiResponse response = SingletonClient.getInstance().updateEntity(this);
 
     //todo error checking on response
-    System.out.println(response);
 
     String uuid = response.getFirstEntity().getStringProperty("uuid");
     this.setUuid(UUID.fromString(uuid));
@@ -200,7 +199,7 @@ public class Entity {
 
     ApiResponse response = SingletonClient.getInstance().delete(this);
     //todo error checking on response
-    System.out.println(response);
+
   }
 
   public String getStringProperty(String name) {
@@ -217,7 +216,6 @@ public class Entity {
 
     //todo error checking on response
 
-    System.out.println(response);
     String uuid = response.getFirstEntity().getStringProperty("uuid");
     this.setUuid(UUID.fromString(uuid));
   }
@@ -229,7 +227,7 @@ public class Entity {
     ApiResponse response = SingletonClient.getInstance().put(this);
 
     //todo error checking on response
-    System.out.println(response);
+
     String uuid = response.getFirstEntity().getStringProperty("uuid");
     // make sure there is an entity and a uuid
     this.setUuid(UUID.fromString(uuid));
