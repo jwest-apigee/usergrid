@@ -3,11 +3,13 @@ import org.apache.usergrid.java.client.Client;
 import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.query.Query;
+import org.apache.usergrid.java.client.response.ApiResponse;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 //import org.apache.usergrid.java.client.query
@@ -22,7 +24,7 @@ public class BasicClientV2 {
     FileInputStream f = null;
 
     try {
-      f = new FileInputStream("/Users/ApigeeCorporation/code/usergrid/myfork/incubator-usergrid/sdks/java/src/main/resources/secure/api-connectors.properties");
+      f = new FileInputStream("/Users/ayeshadastagiri/incubator-usergrid/sdks/java/src/main/resources/example.properties");
       props.load(f);
     } catch (FileNotFoundException e) {
       e.printStackTrace();
@@ -37,9 +39,17 @@ public class BasicClientV2 {
     String client_secret = props.getProperty("usergrid.client_secret");
     String apiUrl = props.getProperty("usergrid.apiUrl");
 
-
     Usergrid.initialize(apiUrl, orgName, appName);
+    Usergrid client = Usergrid.getInstance();
+    Map<String, Object> param = new HashMap<String, Object>();
+    param.put("type","nishita");
+   // ApiResponse response = client.apiRequest("GET", param, null, client.getOrganizationId(), client.getApplicationId());
 
+    System.out.println("------------------------");
+    client.authorizeAppClient(client_id, client_secret);
+
+    client.createEntity(param);
+    System.out.println("////////////////////////////");
     Usergrid brandon = Usergrid.getInstance("Brandon's App");
     Usergrid jeff = Usergrid.getInstance("Jeff's App");
     Usergrid robert = Usergrid.getInstance("Robert's App");
