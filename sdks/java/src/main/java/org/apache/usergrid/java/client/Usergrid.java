@@ -322,12 +322,14 @@ public class Usergrid {
 
     WebTarget webTarget = restClient.target(apiUrl);
 
-    for (String segment : segments)
-      webTarget = webTarget.path(segment);
-
+    for (String segment : segments) {
+     if(segment!=null)
+        webTarget = webTarget.path(segment);
+    }
     if (method.equals(HTTP_POST) && isEmpty(data) && !isEmpty(params)) {
-      data = encodeParams(params);
-      contentType = MediaType.APPLICATION_FORM_URLENCODED;
+      data = params;
+      //contentType = MediaType.APPLICATION_FORM_URLENCODED;
+      contentType = MediaType.APPLICATION_JSON;
 
     } else {
 
@@ -348,9 +350,13 @@ public class Usergrid {
 
 //    System.out.println(invocationBuilder.method(method, Entity.entity(encodeParamsparams, MediaType.APPLICATION_JSON), javax.ws.rs.core.Response.class));
 
-//    return null;
-    System.out.println(invocationBuilder.method(method, Entity.entity(params, MediaType.APPLICATION_JSON), ApiResponse.class));
-    return invocationBuilder.method(method, Entity.entity(params, MediaType.APPLICATION_JSON), ApiResponse.class);
+    if (method==HTTP_POST||method==HTTP_PUT) {
+      return invocationBuilder.method(method, Entity.entity(data, contentType), ApiResponse.class);
+    }
+    else {
+
+      return invocationBuilder.method(method,null, ApiResponse.class);
+    }
   }
 
 
