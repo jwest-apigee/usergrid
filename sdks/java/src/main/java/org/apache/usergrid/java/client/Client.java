@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.apache.usergrid.java.client.model.*;
-import org.apache.usergrid.java.client.query.Query;
+import org.apache.usergrid.java.client.query.UsergridQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -1121,9 +1121,9 @@ public class Client {
   }
 
 
-  public QueryResult query(Query query) {
+  public QueryResult query(UsergridQuery usergridQuery) {
 
-    String uri = query.toString();
+    String uri = usergridQuery.toString();
 
     return null;
   }

@@ -18,7 +18,7 @@ package org.apache.usergrid.java.client;
 
 import org.apache.usergrid.java.client.cache.CacheRequestInterceptor;
 import org.apache.usergrid.java.client.model.*;
-import org.apache.usergrid.java.client.query.Query;
+import org.apache.usergrid.java.client.query.UsergridQuery;
 import org.apache.usergrid.java.client.response.ApiResponse;
 import org.glassfish.jersey.jackson.JacksonFeature;
 import org.slf4j.Logger;
@@ -1223,9 +1223,9 @@ public class UsergridApache {
   }
 
 
-  public QueryResult query(final Query query) {
+  public QueryResult query(final UsergridQuery usergridQuery) {
 
-    String uri = query.toString();
+    String uri = usergridQuery.toString();
 
     return null;
   }

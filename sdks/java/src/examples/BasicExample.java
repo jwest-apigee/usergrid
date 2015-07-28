@@ -1,6 +1,6 @@
 import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.model.UsergridEntity;
-import org.apache.usergrid.java.client.query.Query;
+import org.apache.usergrid.java.client.query.UsergridQuery;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -64,7 +64,7 @@ public class BasicExample {
 
     owner.connect(jeffCat, "owns");
 
-    Query q = new Query.Builder()
+    UsergridQuery q = new UsergridQuery.Builder()
         .collection("pets")
         .limit(100)
         .gt("age", 100)

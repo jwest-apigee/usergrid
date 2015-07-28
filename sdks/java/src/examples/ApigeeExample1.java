@@ -1,7 +1,7 @@
 import com.apigee.sdk.*;
 import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.model.UsergridEntity;
-import org.apache.usergrid.java.client.query.Query;
+import org.apache.usergrid.java.client.query.UsergridQuery;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -125,7 +125,7 @@ public class ApigeeExample1 {
 //    client.connectEntities(pet, owner, "ownedBy");
 //    client.connectEntities(owner, pet, "owns");
 
-    Query q = new Query.Builder()
+    UsergridQuery q = new UsergridQuery.Builder()
         .collection("pets")
         .limit(100)
         .gt("age", 100)

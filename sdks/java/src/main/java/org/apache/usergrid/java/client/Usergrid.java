@@ -18,7 +18,7 @@ package org.apache.usergrid.java.client;
 
 import org.apache.usergrid.java.client.model.*;
 import org.apache.usergrid.java.client.query.EntityQueryResult;
-import org.apache.usergrid.java.client.query.Query;
+import org.apache.usergrid.java.client.query.UsergridQuery;
 import org.apache.usergrid.java.client.query.QueryResult;
 import org.apache.usergrid.java.client.query.QueueQueryResult;
 import org.apache.usergrid.java.client.response.ApiResponse;
@@ -367,7 +367,7 @@ public class Usergrid {
 
       return invocationBuilder.method(method, null, ApiResponse.class);
     }
-    
+
   }
 
 
@@ -1240,14 +1240,14 @@ public class Usergrid {
         .withApplicationId(appName);
   }
 
-  public QueryResult get(Query q) {
+  public QueryResult get(UsergridQuery q) {
 
     String uri = q.toString();
 
     return null;
   }
 
-  public QueryResult put(Query q) {
+  public ApiResponse put(UsergridQuery q, Map<String, Object> fields) {
 
     String uri = q.toString();
 

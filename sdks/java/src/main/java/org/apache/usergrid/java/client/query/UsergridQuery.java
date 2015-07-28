@@ -1,16 +1,18 @@
 package org.apache.usergrid.java.client.query;
 
 import org.apache.usergrid.java.client.Usergrid;
+import org.apache.usergrid.java.client.response.ApiResponse;
 
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by ApigeeCorporation on 7/1/15.
  */
 
-public class Query {
+public class UsergridQuery {
 
   public static final String ORDER_BY = " ORDER BY ";
   public static final String LIMIT = " LIMIT ";
@@ -22,7 +24,7 @@ public class Query {
   private final Builder builder;
 
   public static void main(String[] args) {
-    Query q = new Builder()
+    UsergridQuery q = new Builder()
         .collection("pets")
         .limit(100)
         .gt("age", 100)
@@ -35,7 +37,7 @@ public class Query {
     System.out.println(q.build());
   }
 
-  public Query(Builder builder) {
+  public UsergridQuery(Builder builder) {
     this.builder = builder;
   }
 
@@ -109,6 +111,10 @@ public class Query {
 
   public QueryResult get() {
     return Usergrid.getInstance().get(this);
+  }
+
+  public ApiResponse put(Map<String, Object> fields) {
+    return Usergrid.getInstance().put(this, fields);
   }
 
   public static class Builder {
@@ -196,7 +202,7 @@ public class Query {
         if (urlTerm.equalsIgnoreCase(QL)) {
           ql(equalsValue);
         } else {
-          urlTerms.add(Query.encode(urlTerm) + "=" + Query.encode(equalsValue));
+          urlTerms.add(UsergridQuery.encode(urlTerm) + "=" + UsergridQuery.encode(equalsValue));
         }
       }
       return this;
@@ -324,8 +330,8 @@ public class Query {
       return this;
     }
 
-    public Query build() {
-      return new Query(this);
+    public UsergridQuery build() {
+      return new UsergridQuery(this);
     }
 
     public Builder limit(int limit) {
