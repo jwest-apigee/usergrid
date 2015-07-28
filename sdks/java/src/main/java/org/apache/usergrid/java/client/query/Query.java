@@ -1,6 +1,5 @@
 package org.apache.usergrid.java.client.query;
 
-import org.apache.usergrid.java.client.Client;
 import org.apache.usergrid.java.client.Usergrid;
 
 import java.net.URLEncoder;
@@ -20,10 +19,10 @@ public class Query {
   public static final String AMPERSAND = "&";
   public static final String SPACE = " ";
   public static final String ASTERISK = "*";
-  private final QueryBuilder queryBuilder;
+  private final Builder builder;
 
   public static void main(String[] args) {
-    Query q = new QueryBuilder()
+    Query q = new Builder()
         .collection("pets")
         .limit(100)
         .gt("age", 100)
@@ -36,37 +35,37 @@ public class Query {
     System.out.println(q.build());
   }
 
-  public Query(QueryBuilder queryBuilder) {
-    this.queryBuilder = queryBuilder;
+  public Query(Builder builder) {
+    this.builder = builder;
   }
 
   public String build() {
     String urlAppend = "";
     boolean hasContent = false;
 
-    if (this.queryBuilder.requirements.size() > 0) {
+    if (this.builder.requirements.size() > 0) {
       String qlString = "";
 
-      for (int i = 0; i < this.queryBuilder.requirements.size(); i++) {
+      for (int i = 0; i < this.builder.requirements.size(); i++) {
 
         if (i > 0) {
           qlString += AND;
         }
 
-        qlString += this.queryBuilder.requirements.get(i);
+        qlString += this.builder.requirements.get(i);
       }
 
-      if (this.queryBuilder.orderClauses != null && this.queryBuilder.orderClauses.size() > 0) {
-        for (int i = 0; i < this.queryBuilder.orderClauses.size(); i++) {
+      if (this.builder.orderClauses != null && this.builder.orderClauses.size() > 0) {
+        for (int i = 0; i < this.builder.orderClauses.size(); i++) {
 
           if (i == 0) {
             qlString += ORDER_BY;
           }
-          SortTerm term = this.queryBuilder.orderClauses.get(i);
+          SortTerm term = this.builder.orderClauses.get(i);
 
           qlString += term.term + SPACE + term.order;
 
-          if (i < this.queryBuilder.orderClauses.size() - 1) {
+          if (i < this.builder.orderClauses.size() - 1) {
             qlString += COMMA;
           }
         }
@@ -78,9 +77,9 @@ public class Query {
       hasContent = true;
     }
 
-    if (this.queryBuilder.urlTerms.size() > 0) {
+    if (this.builder.urlTerms.size() > 0) {
 
-      for (String urlTerm : this.queryBuilder.urlTerms) {
+      for (String urlTerm : this.builder.urlTerms) {
 
         if (hasContent) {
           urlAppend += AMPERSAND + urlTerm;
@@ -90,7 +89,9 @@ public class Query {
       }
     }
 
-    if (this.queryBuilder.limit != Integer.MIN_VALUE) {
+    //todo finish
+
+    if (this.builder.limit != Integer.MIN_VALUE) {
     }
 
     return urlAppend;
@@ -106,11 +107,11 @@ public class Query {
     return escapedString;
   }
 
-  public Usergrid.QueryResult get() {
-    return Usergrid.getInstance().query(this);
+  public QueryResult get() {
+    return Usergrid.getInstance().get(this);
   }
 
-  public static class QueryBuilder {
+  public static class Builder {
 
     public final ArrayList<String> requirements = new ArrayList<String>();
     public final ArrayList<String> urlTerms = new ArrayList<String>();
@@ -118,7 +119,7 @@ public class Query {
     public int limit = Integer.MIN_VALUE;
     public List<SortTerm> orderClauses;
 
-    public QueryBuilder() {
+    public Builder() {
     }
 
     private void addRequirement(final String requirement) {
@@ -127,70 +128,70 @@ public class Query {
       }
     }
 
-    private QueryBuilder addOperationRequirement(final String term, final QUERY_OPERATION operation, final String value) {
+    private Builder addOperationRequirement(final String term, final QUERY_OPERATION operation, final String value) {
       if (term != null && operation != null && value != null) {
         this.addRequirement(term + operation.toString() + value);
       }
       return this;
     }
 
-    private QueryBuilder addOperationRequirement(final String term, final QUERY_OPERATION operation, final int value) {
+    private Builder addOperationRequirement(final String term, final QUERY_OPERATION operation, final int value) {
       if (term != null && operation != null) {
         addRequirement(term + operation.toString() + value);
       }
       return this;
     }
 
-    public QueryBuilder startsWith(final String term, final String value) {
+    public Builder startsWith(final String term, final String value) {
       if (term != null && value != null) {
         addRequirement(term + EQUALS + APOSTROPHE + value + ASTERISK + APOSTROPHE);
       }
       return this;
     }
 
-    public QueryBuilder endsWith(final String term, final String value) {
+    public Builder endsWith(final String term, final String value) {
       if (term != null && value != null) {
         addRequirement(term + EQUALS + APOSTROPHE + ASTERISK + value + APOSTROPHE);
       }
       return this;
     }
 
-    public QueryBuilder containsString(final String term, final String value) {
+    public Builder containsString(final String term, final String value) {
       if (term != null && value != null) {
         addRequirement(term + CONTAINS + APOSTROPHE + value + APOSTROPHE);
       }
       return this;
     }
 
-    public QueryBuilder containsWord(final String term, final String value) {
+    public Builder containsWord(final String term, final String value) {
       if (term != null && value != null) {
         addRequirement(term + CONTAINS + APOSTROPHE + value + APOSTROPHE);
       }
       return this;
     }
 
-    public QueryBuilder in(final String term, final int low, final int high) {
+    public Builder in(final String term, final int low, final int high) {
       if (term != null) {
         addRequirement(term + IN + low + COMMA + high);
       }
       return this;
     }
 
-    public QueryBuilder locationWithin(final String term, final float distance, final float latitude, final float longitude) {
+    public Builder locationWithin(final String term, final float distance, final float latitude, final float longitude) {
       if (term != null) {
         addRequirement(term + WITHIN + distance + OF + latitude + COMMA + longitude);
       }
       return this;
     }
 
-    public QueryBuilder collection(final String collectionName) {
+    public Builder collection(final String collectionName) {
       if (collectionName != null) {
         this.collectionName = collectionName;
       }
       return this;
     }
 
-    public QueryBuilder urlTerm(final String urlTerm, final String equalsValue) {
+    public Builder urlTerm(final String urlTerm, final String equalsValue) {
       if (urlTerm != null && equalsValue != null) {
         if (urlTerm.equalsIgnoreCase(QL)) {
           ql(equalsValue);
@@ -201,118 +202,118 @@ public class Query {
       return this;
     }
 
-    public QueryBuilder ql(final String value) {
+    public Builder ql(final String value) {
       if (value != null) {
         addRequirement(value);
       }
       return this;
     }
 
-    public QueryBuilder equals(final String term, final String stringValue) {
+    public Builder equals(final String term, final String stringValue) {
       return addOperationRequirement(term, QUERY_OPERATION.EQUAL, stringValue);
     }
 
-    public QueryBuilder equals(final String term, final int intValue) {
+    public Builder equals(final String term, final int intValue) {
       return addOperationRequirement(term, QUERY_OPERATION.EQUAL, intValue);
     }
 
-    public QueryBuilder greaterThan(final String term, final String stringValue) {
+    public Builder greaterThan(final String term, final String stringValue) {
       return addOperationRequirement(term, QUERY_OPERATION.GREATER_THAN, stringValue);
     }
 
-    public QueryBuilder greaterThan(final String term, final int intValue) {
+    public Builder greaterThan(final String term, final int intValue) {
       return addOperationRequirement(term, QUERY_OPERATION.GREATER_THAN, intValue);
     }
 
-    public QueryBuilder greaterThanOrEqual(final String term, final String stringValue) {
+    public Builder greaterThanOrEqual(final String term, final String stringValue) {
       return addOperationRequirement(term, QUERY_OPERATION.GREATER_THAN_EQUAL_TO, stringValue);
     }
 
-    public QueryBuilder greaterThanOrEqual(final String term, final int intValue) {
+    public Builder greaterThanOrEqual(final String term, final int intValue) {
       return addOperationRequirement(term, QUERY_OPERATION.GREATER_THAN_EQUAL_TO, intValue);
     }
 
-    public QueryBuilder lessThan(final String term, final String stringValue) {
+    public Builder lessThan(final String term, final String stringValue) {
       return addOperationRequirement(term, QUERY_OPERATION.LESS_THAN, stringValue);
     }
 
-    public QueryBuilder lessThan(final String term, final int intValue) {
+    public Builder lessThan(final String term, final int intValue) {
       return addOperationRequirement(term, QUERY_OPERATION.LESS_THAN, intValue);
     }
 
-    public QueryBuilder lessThanOrEqual(final String term, final String stringValue) {
+    public Builder lessThanOrEqual(final String term, final String stringValue) {
       return addOperationRequirement(term, QUERY_OPERATION.LESS_THAN_EQUAL_TO, stringValue);
     }
 
-    public QueryBuilder lessThanOrEqual(final String term, final int intValue) {
+    public Builder lessThanOrEqual(final String term, final int intValue) {
       return addOperationRequirement(term, QUERY_OPERATION.LESS_THAN_EQUAL_TO, intValue);
     }
 
-    public QueryBuilder filter(final String term, final String stringValue) {
+    public Builder filter(final String term, final String stringValue) {
       return this.equals(term, stringValue);
     }
 
-    public QueryBuilder filter(final String term, final int intValue) {
+    public Builder filter(final String term, final int intValue) {
       return this.equals(term, intValue);
     }
 
-    public QueryBuilder eq(final String term, final String stringValue) {
+    public Builder eq(final String term, final String stringValue) {
       return this.equals(term, stringValue);
     }
 
-    public QueryBuilder eq(final String term, final int intValue) {
+    public Builder eq(final String term, final int intValue) {
       return this.equals(term, intValue);
     }
 
-    public QueryBuilder gt(final String term, final String stringValue) {
+    public Builder gt(final String term, final String stringValue) {
       return this.greaterThan(term, stringValue);
     }
 
-    public QueryBuilder gt(final String term, final int intValue) {
+    public Builder gt(final String term, final int intValue) {
       return this.greaterThan(term, intValue);
     }
 
-    public QueryBuilder gte(final String term, final String stringValue) {
+    public Builder gte(final String term, final String stringValue) {
       return this.greaterThanOrEqual(term, stringValue);
     }
 
-    public QueryBuilder gte(final String term, final int intValue) {
+    public Builder gte(final String term, final int intValue) {
       return this.greaterThanOrEqual(term, intValue);
     }
 
-    public QueryBuilder lt(final String term, final String stringValue) {
+    public Builder lt(final String term, final String stringValue) {
       return this.lessThan(term, stringValue);
     }
 
-    public QueryBuilder lt(final String term, final int intValue) {
+    public Builder lt(final String term, final int intValue) {
       return this.lessThan(term, intValue);
     }
 
-    public QueryBuilder lte(final String term, final String stringValue) {
+    public Builder lte(final String term, final String stringValue) {
       return this.lessThanOrEqual(term, stringValue);
     }
 
-    public QueryBuilder lte(final String term, final int intValue) {
+    public Builder lte(final String term, final int intValue) {
       return this.lessThanOrEqual(term, intValue);
     }
 
-    public QueryBuilder asc(String term) {
+    public Builder asc(String term) {
       return this.descending(term);
     }
 
-    public QueryBuilder ascending(String term) {
+    public Builder ascending(String term) {
       return addSortTerm(new SortTerm(term, "ASC"));
     }
 
-    public QueryBuilder desc(String term) {
+    public Builder desc(String term) {
       return this.descending(term);
     }
 
-    public QueryBuilder descending(String term) {
+    public Builder descending(String term) {
       return addSortTerm(new SortTerm(term, "DESC"));
     }
 
-    private QueryBuilder addSortTerm(SortTerm term) {
+    private Builder addSortTerm(SortTerm term) {
 
       if (orderClauses == null) {
         orderClauses = new ArrayList<SortTerm>(3);
@@ -327,7 +328,7 @@ public class Query {
       return new Query(this);
     }
 
-    public QueryBuilder limit(int limit) {
+    public Builder limit(int limit) {
       this.limit = limit;
       return this;
     }

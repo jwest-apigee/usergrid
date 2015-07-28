@@ -1,13 +1,13 @@
 import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.query.Query;
+import org.apache.usergrid.java.client.query.QueryResult;
 //import org.apache.usergrid.java.client.query
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Properties;
-import java.util.UUID;
 
 /**
  * Created by ApigeeCorporation on 6/26/15.
@@ -71,7 +71,7 @@ public class ExampleClientV2 {
     client.connectEntities(jeffCat, owner, "ownedBy");
     client.connectEntities(owner, jeffCat, "owns");
 
-    Query q = new Query.QueryBuilder()
+    Query q = new Query.Builder()
         .collection("pets")
         .limit(100)
         .gt("age", 100)
@@ -81,6 +81,7 @@ public class ExampleClientV2 {
         .asc("dogs")
         .build();
 
-    q.get();
+    QueryResult qr = q.get();
+    qr = jeff.put(q);
   }
 }

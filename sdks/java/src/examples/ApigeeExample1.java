@@ -64,17 +64,17 @@ public class ApigeeExample1 {
         callbackURL = "http://localhost:3000/auth/example/callback";
 
 
-    apiClient1.setAuthenticationStrategy(new OAuthAuthenticationStrategy(
-        authorizationURL,
-        tokenURL,
-        clientID,
-        clientSecret,
-        callbackURL
-    ));
-
-    apiClient1.setCachingStrategy(new HttpCompliantCache("name"));
-
-    ApigeeSDK.ApiClient("MyApi1").setCachingStrategy(new HttpCompliantCache("name"));
+//    apiClient1.setAuthenticationStrategy(new OAuthAuthenticationStrategy(
+//        authorizationURL,
+//        tokenURL,
+//        clientID,
+//        clientSecret,
+//        callbackURL
+//    ));
+//
+//    apiClient1.setCachingStrategy(new HttpCompliantCache("name"));
+//
+//    ApigeeSDK.ApiClient("MyApi1").setCachingStrategy(new HttpCompliantCache("name"));
 
 
 //    Client client = Usergrid.getInstance();
@@ -125,7 +125,7 @@ public class ApigeeExample1 {
 //    client.connectEntities(pet, owner, "ownedBy");
 //    client.connectEntities(owner, pet, "owns");
 
-    Query q = new Query.QueryBuilder()
+    Query q = new Query.Builder()
         .collection("pets")
         .limit(100)
         .gt("age", 100)

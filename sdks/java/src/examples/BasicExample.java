@@ -64,7 +64,7 @@ public class BasicExample {
 
     owner.connect(jeffCat, "owns");
 
-    Query q = new Query.QueryBuilder()
+    Query q = new Query.Builder()
         .collection("pets")
         .limit(100)
         .gt("age", 100)

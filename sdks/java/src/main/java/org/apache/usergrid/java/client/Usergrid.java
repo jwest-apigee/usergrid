@@ -17,7 +17,10 @@
 package org.apache.usergrid.java.client;
 
 import org.apache.usergrid.java.client.model.*;
+import org.apache.usergrid.java.client.query.EntityQueryResult;
 import org.apache.usergrid.java.client.query.Query;
+import org.apache.usergrid.java.client.query.QueryResult;
+import org.apache.usergrid.java.client.query.QueueQueryResult;
 import org.apache.usergrid.java.client.response.ApiResponse;
 import org.glassfish.jersey.jackson.JacksonFeature;
 import org.slf4j.Logger;
@@ -27,12 +30,12 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.Form;
 import javax.ws.rs.core.MediaType;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.usergrid.java.client.utils.ObjectUtils.isEmpty;
-import static org.apache.usergrid.java.client.utils.UrlUtils.encodeParams;
 import static org.springframework.util.StringUtils.arrayToDelimitedString;
 import static org.springframework.util.StringUtils.tokenizeToStringArray;
 
@@ -312,27 +315,52 @@ public class Usergrid {
                                 final Object data,
                                 final String... segments) {
 
-    //https://jersey.java.net/documentation/latest/client.html
+    // consider using Rx in the future: https://jersey.java.net/documentation/latest/rx-client.html
+
+    // https://jersey.java.net/documentation/latest/client.html
 
     // required to appropriately set content-length when there is no content.  blank string results in '0'
     //   whereas null results in no header
-    Object entity = data == null ? STR_BLANK : data;
 
+    // default to JSON
     String contentType = MediaType.APPLICATION_JSON;
 
+    Entity entity = Entity.entity(data == null ? STR_BLANK : data, contentType);
+
+    // create the target from the base API URL
     WebTarget webTarget = restClient.target(apiUrl);
 
+    // build the resource path from the segments
     for (String segment : segments)
       webTarget = webTarget.path(segment);
 
-    if (method.equals(HTTP_POST) && isEmpty(data) && !isEmpty(params)) {
-      entity = encodeParams(params);
+    // check to see if we need to do a FORM POST by checking the METHOD,
+    // that there is NO DATA and that the params are not empty
+    if (method.equals(HTTP_POST)
+        && isEmpty(data)
+        && !isEmpty(params)) {
+
+      Form form = new Form();
+
+      // build the FORM object
+      for (Map.Entry<String, Object> param : params.entrySet()) {
+        form.param(param.getKey(), String.valueOf(param.getValue()));
+      }
+
+      // set the content type
       contentType = MediaType.APPLICATION_FORM_URLENCODED;
+
+      // update the entity being used to the FORM
+      entity = Entity.form(form);
 
     } else {
 
+      // this indicates this is not a POST
+
+      // if there are params, then these are query params
       if (params != null) {
 
+        // add the params to the URI
         for (Map.Entry<String, Object> entry : params.entrySet()) {
           webTarget = webTarget.queryParam(entry.getKey(), String.valueOf(entry.getValue()));
         }
@@ -341,12 +369,15 @@ public class Usergrid {
 
     Invocation.Builder invocationBuilder = webTarget.request(contentType);
 
+    // add access token
+    // need to evaluate other authentication options here as well
     if (accessToken != null) {
       String auth = BEARER + accessToken;
       invocationBuilder.header(HEADER_AUTHORIZATION, auth);
     }
 
-    return invocationBuilder.method(method, Entity.entity(entity, contentType), ApiResponse.class);
+    // invoke the API Call
+    return invocationBuilder.method(method, entity, ApiResponse.class);
   }
 
 
@@ -905,7 +936,7 @@ public class Usergrid {
                                    final Object data,
                                    final String... segments) {
 
-    return new EntityQueryResult(apiRequest(method, params, data, segments), method, params, data, segments);
+    return new EntityQueryResult(this, apiRequest(method, params, data, segments), method, params, data, segments);
   }
 
   /**
@@ -1199,13 +1230,6 @@ public class Usergrid {
   }
 
 
-  public QueryResult query(final Query query) {
-
-    String uri = query.toString();
-
-    return null;
-  }
-
   public ApiResponse put(final UsergridEntity usergridEntity) {
     return updateEntity(usergridEntity);
   }
@@ -1226,100 +1250,26 @@ public class Usergrid {
         .withApplicationId(appName);
   }
 
-  public interface QueryResult {
+  public QueryResult get(Query q) {
 
-    public ApiResponse getLastResponse();
+    String uri = q.toString();
 
-    public boolean more();
-
-    public QueryResult next();
-
+    return null;
   }
+
+  public QueryResult put(Query q) {
+
+    String uri = q.toString();
+
+    return null;
+  }
+
 
   /**
    * QueryResult object
    */
-  private class EntityQueryResult implements QueryResult {
 
-    final String method;
-    final Map<String, Object> params;
-    final Object data;
-    final String[] segments;
-    final ApiResponse lastResponse;
-
-    private EntityQueryResult(final ApiResponse lastResponse,
-                              final String method,
-                              final Map<String, Object> params,
-                              final Object data,
-                              final String[] segments) {
-
-      this.lastResponse = lastResponse;
-      this.method = method;
-      this.params = params;
-      this.data = data;
-      this.segments = segments;
-    }
-
-    private EntityQueryResult(final ApiResponse lastResponse,
-                              final EntityQueryResult q) {
-
-      this.lastResponse = lastResponse;
-      method = q.method;
-      params = q.params;
-      data = q.data;
-      segments = q.segments;
-    }
-
-    /**
-     * @return the api lastResponse of the last request
-     */
-    public ApiResponse getLastResponse() {
-      return lastResponse;
-    }
-
-    /**
-     * @return true if the server indicates more results are available
-     */
-    public boolean more() {
-
-      return (lastResponse != null)
-          && (lastResponse.getCursor() != null)
-          && (lastResponse.getCursor().length() > 0);
-    }
-
-    /**
-     * Performs a request for the next set of results
-     *
-     * @return query that contains results and where to get more from.
-     */
-    public QueryResult next() {
-
-      if (more()) {
-
-        Map<String, Object> nextParams = null;
-
-        if (params != null) {
-
-          nextParams = new HashMap<>(params);
-
-        } else {
-
-          nextParams = new HashMap<>();
-        }
-
-        nextParams.put("cursor", lastResponse.getCursor());
-
-        ApiResponse nextResponse = apiRequest(method, nextParams, data, segments);
-
-        return new EntityQueryResult(nextResponse, this);
-      }
-
-      return null;
-    }
-
-  }
-
-  private String normalizeQueuePath(final String path) {
+  public String normalizeQueuePath(final String path) {
 
     return arrayToDelimitedString(tokenizeToStringArray(path, "/", true, true), "/");
   }
@@ -1429,84 +1379,6 @@ public class Usergrid {
     return apiRequest(HTTP_DELETE, null, null, organizationId, applicationId, "queues", normalizeQueuePath(publisherQueue), "subscribers", normalizeQueuePath(subscriberQueue));
   }
 
-  private class QueueQueryResult implements QueryResult {
-    final String method;
-    final Map<String, Object> params;
-    final Object data;
-    final String queuePath;
-    final ApiResponse response;
-
-    private QueueQueryResult(final ApiResponse response,
-                             final String method,
-                             final Map<String, Object> params,
-                             final Object data,
-                             final String queuePath) {
-
-      this.response = response;
-      this.method = method;
-      this.params = params;
-      this.data = data;
-      this.queuePath = normalizeQueuePath(queuePath);
-    }
-
-    private QueueQueryResult(final ApiResponse response,
-                             final QueueQueryResult q) {
-
-      this.response = response;
-      method = q.method;
-      params = q.params;
-      data = q.data;
-      queuePath = q.queuePath;
-    }
-
-    /**
-     * @return the api lastResponse of the last request
-     */
-    public ApiResponse getLastResponse() {
-      return response;
-    }
-
-    /**
-     * @return true if the server indicates more results are available
-     */
-    public boolean more() {
-
-      return (response != null)
-          && (response.getCursor() != null)
-          && (response.getCursor().length() > 0);
-    }
-
-    /**
-     * Performs a request for the next set of results
-     *
-     * @return query that contains results and where to get more from.
-     */
-    public QueryResult next() {
-
-      if (more()) {
-
-        Map<String, Object> nextParams = null;
-
-        if (params != null) {
-
-          nextParams = new HashMap<>(params);
-
-        } else {
-
-          nextParams = new HashMap<>();
-        }
-
-        nextParams.put("start", response.getCursor());
-        ApiResponse nextResponse = apiRequest(method, nextParams, data, queuePath);
-
-        return new QueueQueryResult(nextResponse, this);
-      }
-
-      return null;
-    }
-
-  }
-
   public QueryResult queryQueuesRequest(final String method,
                                         final Map<String, Object> params,
                                         final Object data,
@@ -1514,7 +1386,7 @@ public class Usergrid {
 
     ApiResponse response = apiRequest(method, params, data, queuePath);
 
-    return new QueueQueryResult(response, method, params, data, queuePath);
+    return new QueueQueryResult(this, response, method, params, data, queuePath);
   }
 
 }

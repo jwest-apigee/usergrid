@@ -6,6 +6,7 @@ import org.apache.usergrid.java.client.Usergrid;
 import java.util.HashMap;
 import java.util.Map;
 
+
 /**
  * Created by ApigeeCorporation on 7/22/15.
  */
@@ -27,7 +28,7 @@ public class ApigeeSDK {
     ApiClient client = apiClients_.get(id);
 
     if (client == null) {
-      client = new ApiClient();
+      client = new ApiClient(id, null, new ApiClient.Features());
       apiClients_.put(id, client);
     }
 
@@ -42,12 +43,11 @@ public class ApigeeSDK {
 
   }
 
-
   public static ApiClient ApiClient(String id) {
     ApiClient client = apiClients_.get(id);
 
     if (client == null) {
-      client = new ApiClient();
+      client = new ApiClient(id, null, new ApiClient.Features());
       apiClients_.put(id, client);
     }
 
