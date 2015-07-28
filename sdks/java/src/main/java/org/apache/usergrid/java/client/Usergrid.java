@@ -312,8 +312,9 @@ public class Usergrid {
    */
   public ApiResponse apiRequest(final String method,
                                 final Map<String, Object> params,
-                                final Object data,
+                                Object data,
                                 final String... segments) {
+    //https://jersey.java.net/documentation/latest/client.html
 
     // consider using Rx in the future: https://jersey.java.net/documentation/latest/rx-client.html
 
@@ -330,9 +331,9 @@ public class Usergrid {
     // create the target from the base API URL
     WebTarget webTarget = restClient.target(apiUrl);
 
-    // build the resource path from the segments
     for (String segment : segments)
-      webTarget = webTarget.path(segment);
+      if (segment != null)
+        webTarget = webTarget.path(segment);
 
     // check to see if we need to do a FORM POST by checking the METHOD,
     // that there is NO DATA and that the params are not empty
@@ -347,24 +348,6 @@ public class Usergrid {
         form.param(param.getKey(), String.valueOf(param.getValue()));
       }
 
-      // set the content type
-      contentType = MediaType.APPLICATION_FORM_URLENCODED;
-
-      // update the entity being used to the FORM
-      entity = Entity.form(form);
-
-    } else {
-
-      // this indicates this is not a POST
-
-      // if there are params, then these are query params
-      if (params != null) {
-
-        // add the params to the URI
-        for (Map.Entry<String, Object> entry : params.entrySet()) {
-          webTarget = webTarget.queryParam(entry.getKey(), String.valueOf(entry.getValue()));
-        }
-      }
     }
 
     Invocation.Builder invocationBuilder = webTarget.request(contentType);
@@ -376,8 +359,15 @@ public class Usergrid {
       invocationBuilder.header(HEADER_AUTHORIZATION, auth);
     }
 
-    // invoke the API Call
-    return invocationBuilder.method(method, entity, ApiResponse.class);
+//    System.out.println(invocationBuilder.method(method, Entity.entity(encodeParamsparams, MediaType.APPLICATION_JSON), javax.ws.rs.core.Response.class));
+
+    if (Objects.equals(method, HTTP_POST) || Objects.equals(method, HTTP_PUT)) {
+      return invocationBuilder.method(method, Entity.entity(data, contentType), ApiResponse.class);
+    } else {
+
+      return invocationBuilder.method(method, null, ApiResponse.class);
+    }
+    
   }
 
 

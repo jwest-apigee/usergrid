@@ -69,6 +69,9 @@ public class UsergridEntity {
     return properties;
   }
 
+  public void setType(String type) {
+    setStringProperty(properties, PROPERTY_TYPE, type);
+  }
   public String getType() {
     return JsonUtils.getStringProperty(properties, PROPERTY_TYPE);
   }
@@ -197,7 +200,6 @@ public class UsergridEntity {
     ApiResponse response = Usergrid.getInstance().save(this);
 
     //todo error checking on response
-    System.out.println(response);
 
     UsergridEntity first = response.getFirstEntity();
 
@@ -210,7 +212,7 @@ public class UsergridEntity {
 
     ApiResponse response = Usergrid.getInstance().delete(this);
     //todo error checking on response
-    System.out.println(response);
+
   }
 
   public String getStringProperty(String name) {
@@ -228,6 +230,7 @@ public class UsergridEntity {
 
     //todo error checking on response
 
+
     System.out.println(response);
     UsergridEntity first = response.getFirstEntity();
     String uuid = first.getStringProperty(STR_UUID);
@@ -241,8 +244,10 @@ public class UsergridEntity {
     ApiResponse response = Usergrid.getInstance().put(this);
 
     //todo error checking on response
+
     System.out.println(response);
     String uuid = response.getFirstEntity().getStringProperty(STR_UUID);
+
     // make sure there is an entity and a uuid
     this.setUuid(UUID.fromString(uuid));
   }
