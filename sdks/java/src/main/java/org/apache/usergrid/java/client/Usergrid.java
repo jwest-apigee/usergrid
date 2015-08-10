@@ -335,18 +335,27 @@ public class Usergrid {
       if (segment != null)
         webTarget = webTarget.path(segment);
 
+    if (method.equals(HTTP_GET)&&!isEmpty(params)){
+      for(Map.Entry<String, Object> param : params.entrySet()) {
+        webTarget = webTarget.queryParam(param.getKey(),param.getValue());
+      }
+    }
+
     // check to see if we need to do a FORM POST by checking the METHOD,
     // that there is NO DATA and that the params are not empty
+
+    Form form = new Form();
     if (method.equals(HTTP_POST)
         && isEmpty(data)
         && !isEmpty(params)) {
 
-      Form form = new Form();
-
       // build the FORM object
-      for (Map.Entry<String, Object> param : params.entrySet()) {
-        form.param(param.getKey(), String.valueOf(param.getValue()));
-      }
+
+      //TODO: Uncomment once fixed
+      //for (Map.Entry<String, Object> param : params.entrySet()) {
+      //  form.param(param.getKey(), String.valueOf(param.getValue()));
+      //}
+      data = params;
 
     }
 
@@ -1124,7 +1133,7 @@ public class Usergrid {
                                         final String connetionName) {
 
     return apiRequest(HTTP_DELETE, null, null, organizationId, applicationId, sourceVertex.getType(), sourceVertex.getUuid().toString(), connetionName,
-        TargetVertex.getUuid().toString());
+            TargetVertex.getUuid().toString());
   }
 
 
