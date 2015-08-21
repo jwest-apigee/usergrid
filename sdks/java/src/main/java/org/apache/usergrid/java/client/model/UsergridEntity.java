@@ -24,13 +24,18 @@ import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.exception.ClientException;
 import org.apache.usergrid.java.client.response.ApiResponse;
 import org.apache.usergrid.java.client.utils.JsonUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 import static org.apache.usergrid.java.client.utils.JsonUtils.*;
 import static org.apache.usergrid.java.client.utils.MapUtils.newMapWithoutKeys;
+import static org.apache.usergrid.java.client.utils.ObjectUtils.isEmpty;
 
 public class UsergridEntity {
+
+  private static final Logger log = LoggerFactory.getLogger(UsergridEntity.class);
 
   public static final String STR_UUID = "uuid";
   public final static String PROPERTY_UUID = STR_UUID;
@@ -197,9 +202,17 @@ public class UsergridEntity {
   }
 
   public void save() throws ClientException {
-    ApiResponse response = Usergrid.getInstance().save(this);
 
-    //todo error checking on response
+    ApiResponse response = Usergrid.getInstance().save(this);
+    //todo error checking on response : Done
+    if ((response != null) && !isEmpty(response.getError())) {
+      log.error("Client.apiRequest(): Response error: "
+              + response.getError());
+      if (!isEmpty(response.getException())) {
+        log.error("Client.apiRequest(): Response exception: "
+                + response.getException());
+      }
+    }
 
     UsergridEntity first = response.getFirstEntity();
 
@@ -209,9 +222,19 @@ public class UsergridEntity {
 
   public void delete() throws ClientException {
     // check for one of: name, uuid, error if not found
+    if ( this.getUuid() == null && this.getStringProperty("name") == null)
+      throw new IllegalArgumentException("No name or uuid is present for the entity. Invalid argument");
 
     ApiResponse response = Usergrid.getInstance().delete(this);
-    //todo error checking on response
+    //todo error checking on response : Done
+    if ((response != null) && !isEmpty(response.getError())) {
+      log.error("Client.apiRequest(): Response error: "
+              + response.getError());
+      if (!isEmpty(response.getException())) {
+        log.error("Client.apiRequest(): Response exception: "
+                + response.getException());
+      }
+    }
 
   }
 
@@ -228,8 +251,15 @@ public class UsergridEntity {
 
     ApiResponse response = Usergrid.getInstance().post(this);
 
-    //todo error checking on response
-
+    //todo error checking on response : Done
+    if ((response != null) && !isEmpty(response.getError())) {
+      log.error("Client.apiRequest(): Response error: "
+              + response.getError());
+      if (!isEmpty(response.getException())) {
+        log.error("Client.apiRequest(): Response exception: "
+                + response.getException());
+      }
+    }
 
     System.out.println(response);
     UsergridEntity first = response.getFirstEntity();
@@ -240,10 +270,19 @@ public class UsergridEntity {
   public void put() throws ClientException {
 
     // check for one of: name, uuid, error if not found
+    if ( this.getUuid() == null && this.getStringProperty("name") == null)
+       throw new IllegalArgumentException("No name or uuid is present for the entity. Invalid argument");
 
     ApiResponse response = Usergrid.getInstance().put(this);
-
-    //todo error checking on response
+    //todo error checking on response : Done
+    if ((response != null) && !isEmpty(response.getError())) {
+      log.error("Client.apiRequest(): Response error: "
+              + response.getError());
+      if (!isEmpty(response.getException())) {
+        log.error("Client.apiRequest(): Response exception: "
+                + response.getException());
+      }
+    }
 
     System.out.println(response);
     String uuid = response.getFirstEntity().getStringProperty(STR_UUID);
@@ -263,7 +302,6 @@ public class UsergridEntity {
         target.getUuid() != null ? target.getUuid().toString() : target.getStringProperty(STR_NAME));
 
     //todo - check to make sure it worked
-
     return new Connection(this, connectionType, target);
   }
 
