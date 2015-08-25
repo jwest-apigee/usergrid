@@ -72,6 +72,7 @@ public class UsergridEntity {
   public void setType(String type) {
     setStringProperty(properties, PROPERTY_TYPE, type);
   }
+
   public String getType() {
     return JsonUtils.getStringProperty(properties, PROPERTY_TYPE);
   }
@@ -110,19 +111,12 @@ public class UsergridEntity {
    * @param name
    * @param value
    */
-  public void setProperty(String name, String value) {
+  public UsergridEntity setProperty(String name, String value) {
     setStringProperty(properties, name, value);
+
+    return this;
   }
 
-  /**
-   * Set the property
-   *
-   * @param name
-   * @param value
-   */
-  public void setProperty(String name, boolean value) {
-    setBooleanProperty(properties, name, value);
-  }
 
   /**
    * Set the property
@@ -140,8 +134,10 @@ public class UsergridEntity {
    * @param name
    * @param value
    */
-  public void setProperty(String name, int value) {
+  public UsergridEntity setProperty(String name, int value) {
     setProperty(name, (long) value);
+
+    return this;
   }
 
   /**

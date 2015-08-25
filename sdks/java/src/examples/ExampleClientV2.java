@@ -43,7 +43,6 @@ public class ExampleClientV2 {
     // ignore above...
 
     // below is the sample code
-
     Usergrid.initialize(apiUrl, orgName, appName);
 
     // if you want to have direct access, you can get an instance of the singleton
@@ -56,10 +55,10 @@ public class ExampleClientV2 {
     Usergrid robert = Usergrid.getInstance("Robert's App");
 
     UsergridEntity jeffCat = new UsergridEntity("pet");
-    jeffCat.setProperty("name", "max");
-    jeffCat.setProperty("age", 15);
-    jeffCat.setProperty("weight", 21);
-    jeffCat.setProperty("owner", (String) null);
+    jeffCat.setProperty("name", "max")
+        .setProperty("age", 15)
+        .setProperty("weight", 21)
+        .setProperty("owner", (String) null);
 
     // these functions will use the singleton client instance
     jeffCat.save(); // PUT if by name/uuid, otherwise POST
@@ -82,7 +81,6 @@ public class ExampleClientV2 {
     // new function to create connections (singleton instance)
     owner.connect(jeffCat, "owns");
 
-
     // updated legacy function on client instance
     jeff.connectEntities(jeffCat, owner, "ownedBy");
     jeff.connectEntities(owner, jeffCat, "owns");
@@ -100,6 +98,8 @@ public class ExampleClientV2 {
 
     // singleton operation
     QueryResult qr = q.get();
+
+    UsergridEntity e1 = q.get().first();
 
     Map<String, Object> fields = new HashMap<>();
 

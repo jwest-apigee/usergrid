@@ -14,5 +14,6 @@ public interface QueryResult  {
 
   QueryResult next();
 
+  UsergridEntity first();
 }
 

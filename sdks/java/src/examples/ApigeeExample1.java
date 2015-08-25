@@ -45,6 +45,7 @@ public class ApigeeExample1 {
 
     ApiClient apiClient1 = ApigeeSDK.initApiClient("MyApi1");
     ApiClient apiClient2 = ApigeeSDK.initApiClient("MyOtherAPI");
+
     InsightsClient insightsClient = ApigeeSDK.initInsightsClient("MyOtherAPI");
 
     HashMap<String, Object> properties = new HashMap<String, Object>();
