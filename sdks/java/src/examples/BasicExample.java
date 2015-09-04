@@ -1,4 +1,5 @@
 import org.apache.usergrid.java.client.Usergrid;
+import org.apache.usergrid.java.client.UsergridClient;
 import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.query.UsergridQuery;
 
@@ -37,9 +38,9 @@ public class BasicExample {
 
     Usergrid.initialize(apiUrl, orgName, appName);
 
-    Usergrid brandon = Usergrid.getInstance("Brandon's App");
-    Usergrid jeff = Usergrid.getInstance("Jeff's App");
-    Usergrid robert = Usergrid.getInstance("Robert's App");
+    UsergridClient brandon = Usergrid.getInstance("Brandon's App");
+    UsergridClient jeff = Usergrid.getInstance("Jeff's App");
+    UsergridClient robert = Usergrid.getInstance("Robert's App");
 
 
     UsergridEntity jeffCat = new UsergridEntity("pet");
@@ -47,11 +48,10 @@ public class BasicExample {
     jeffCat.setProperty("age", 15);
     jeffCat.setProperty("weight", 21);
     jeffCat.setProperty("owner", (String) null);
-    jeffCat.save(); // PUT if by name/uuid, otherwise POST
 
 //    jeffCat.post(); // POST to default client to create, fails if exists?
     jeffCat.setProperty("owner", "Jeff");
-    jeffCat.put(); // PUT to default client to update, fails if doesn't exist?
+    jeffCat.PUT(); // PUT to default client to update, fails if doesn't exist?
 //    jeffCat.delete(); // DELETE to default client
 //    pet.patch(); // PATCH to update individual fields?
 
@@ -60,9 +60,8 @@ public class BasicExample {
     owner.changeType("owner");
     owner.setProperty("name", "jeff");
     owner.setProperty("age", 15);
-    owner.save();
 
-    owner.connect(jeffCat, "owns");
+    owner.createConnection(jeffCat, "owns");
 
     UsergridQuery q = new UsergridQuery.Builder()
         .collection("pets")
@@ -74,6 +73,6 @@ public class BasicExample {
         .asc("dogs")
         .build();
 
-    q.get();
+    q.GET();
   }
 }

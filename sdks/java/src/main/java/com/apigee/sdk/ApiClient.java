@@ -2,18 +2,15 @@ package com.apigee.sdk;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.cache.CacheResponseStatus;
 import org.apache.http.client.cache.HttpCacheContext;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.cache.CacheConfig;
 import org.apache.http.impl.client.cache.CachingHttpClientBuilder;
 import org.apache.http.impl.client.cache.CachingHttpClients;
-import org.apache.usergrid.java.client.response.ApiResponse;
+import org.apache.usergrid.java.client.response.UsergridResponse;
 
 import java.io.IOException;
 import java.util.Map;
@@ -66,7 +63,7 @@ public class ApiClient {
   }
 
 
-  public ApiResponse apiRequest(final String method,
+  public UsergridResponse apiRequest(final String method,
                                 final Map<String, Object> params,
                                 final Object data,
                                 final String... segments) throws IOException {
@@ -76,7 +73,7 @@ public class ApiClient {
 
     HttpResponse response = client.execute(httpget, context);
 
-    ApiResponse myObject = objectMapper.readValue(response.getEntity().getContent(), ApiResponse.class);
+    UsergridResponse myObject = objectMapper.readValue(response.getEntity().getContent(), UsergridResponse.class);
 
     CacheResponseStatus responseStatus = context.getCacheResponseStatus();
 
@@ -112,7 +109,7 @@ public class ApiClient {
     ApiClient client = new ApiClient("foo", "bar", f);
 
     try {
-      ApiResponse response = client.apiRequest(null, null, null, "/");
+      UsergridResponse response = client.apiRequest(null, null, null, "/");
       System.out.println(response);
       client.apiRequest(null, null, null, "/");
     } catch (IOException e) {

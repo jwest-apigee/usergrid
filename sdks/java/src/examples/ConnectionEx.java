@@ -1,7 +1,8 @@
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.usergrid.java.client.Usergrid;
+import org.apache.usergrid.java.client.UsergridClient;
 import org.apache.usergrid.java.client.model.UsergridEntity;
-import org.apache.usergrid.java.client.response.ApiResponse;
+import org.apache.usergrid.java.client.response.UsergridResponse;
 
 import javax.script.ScriptException;
 import java.io.FileInputStream;
@@ -48,9 +49,9 @@ public class ConnectionEx {
         String apiUrl = props.getProperty("usergrid.apiUrl");
 
         Usergrid.initialize(apiUrl, orgName, appName);
-        Usergrid client = Usergrid.getInstance();
+        UsergridClient client = Usergrid.getInstance();
 
-        ApiResponse response = client.authorizeAppClient(client_id, client_secret);
+        UsergridResponse response = client.authorizeAppClient(client_id, client_secret);
 
         System.out.println(response);
 
@@ -66,22 +67,22 @@ public class ConnectionEx {
         person1.changeType("people");
         person1.setProperty("name", "A");
         person1.setProperty("age", 20);
-        person1.save();
+        person1.PUT();
 
         person2.changeType("people");
         person2.setProperty("name", "B");
         person2.setProperty("age", 21);
-        person2.save();
+        person2.PUT();
 
         person3.changeType("people");
         person3.setProperty("name", "C");
         person3.setProperty("age", 22);
-        person3.save();
+        person3.PUT();
 
         person4.changeType("people");
         person4.setProperty("name", "D");
         person4.setProperty("age", 23);
-        person4.save();
+        person4.PUT();
 
 
 
@@ -95,32 +96,32 @@ public class ConnectionEx {
         rest1.changeType("Restaurants");
         rest1.setProperty("name", "Amici");
         rest1.setProperty("Location", "San Jose");
-        rest1.save();
+        rest1.PUT();
 
         rest2.changeType("Restaurants");
         rest2.setProperty("name", "Yard House");
         rest2.setProperty("Location", "LA");
-        rest2.save();
+        rest2.PUT();
 
         rest3.changeType("Restaurants");
         rest3.setProperty("name", "PizzaStudio");
         rest3.setProperty("Location", "LA");
-        rest3.save();
+        rest3.PUT();
 
         rest4.changeType("Restaurants");
         rest4.setProperty("name", "CPK");
         rest4.setProperty("Location", "San Jose");
-        rest4.save();
+        rest4.PUT();
 
 
         //http://localhost:8080/test-organization/internapp/people/A/visits/restaurants/Amici?
         // access_token=YWMtBX_YHB6LEeWuZCl2OudNNwAAAU5klcheA1VJ-Ex4ZISkBIh3EEA_5XkvYh8
 
-        ApiResponse c1 = client.connectEntities(person1, rest1, "Visits");
-        ApiResponse c2 =client.connectEntities(person3, rest1, "Visits");
-        ApiResponse c3 = client.connectEntities(person2, person1, "Follows");
-        ApiResponse c4 = client.connectEntities(person1, person3, "Follows");
-        ApiResponse c5 = client.connectEntities(person3, person4, "Follows");
+        UsergridResponse c1 = client.connectEntities(person1, rest1, "Visits");
+        UsergridResponse c2 =client.connectEntities(person3, rest1, "Visits");
+        UsergridResponse c3 = client.connectEntities(person2, person1, "Follows");
+        UsergridResponse c4 = client.connectEntities(person1, person3, "Follows");
+        UsergridResponse c5 = client.connectEntities(person3, person4, "Follows");
 
         Map<String, JsonNode> t = person1.getProperties();
 

@@ -1,6 +1,9 @@
 import com.apigee.sdk.*;
 import org.apache.usergrid.java.client.Usergrid;
+import org.apache.usergrid.java.client.UsergridClient;
 import org.apache.usergrid.java.client.model.UsergridEntity;
+import org.apache.usergrid.java.client.query.LegacyQueryResult;
+import org.apache.usergrid.java.client.query.QueryResult;
 import org.apache.usergrid.java.client.query.UsergridQuery;
 
 import java.io.FileInputStream;
@@ -41,7 +44,7 @@ public class ApigeeExample1 {
     // below is the sample code
 
 
-    Usergrid ugClient = ApigeeSDK.initUsergridClient(apiUrl, orgName, appName);
+    UsergridClient ugClient = ApigeeSDK.initUsergridClient(apiUrl, orgName, appName);
 
     ApiClient apiClient1 = ApigeeSDK.initApiClient("MyApi1");
     ApiClient apiClient2 = ApigeeSDK.initApiClient("MyOtherAPI");
@@ -80,7 +83,7 @@ public class ApigeeExample1 {
 
 //    Client client = Usergrid.getInstance();
 //
-//    ApiResponse response = client.authorizeAppClient(client_id, client_secret);
+//    UsergridResponse response = client.authorizeAppClient(client_id, client_secret);
 
 //    System.out.println(response);
 //
@@ -90,9 +93,9 @@ public class ApigeeExample1 {
 
     Usergrid.initialize(apiUrl, orgName, appName);
 
-    Usergrid brandon = Usergrid.getInstance("Brandon's App");
-    Usergrid jeff = Usergrid.getInstance("Jeff's App");
-    Usergrid robert  = Usergrid.getInstance("Robert's App");
+    UsergridClient brandon = Usergrid.getInstance("Brandon's App");
+    UsergridClient jeff = Usergrid.getInstance("Jeff's App");
+    UsergridClient robert  = Usergrid.getInstance("Robert's App");
 
 
     UsergridEntity jeffCat = new UsergridEntity("pet");
@@ -100,13 +103,12 @@ public class ApigeeExample1 {
     jeffCat.setProperty("age", 15);
     jeffCat.setProperty("weight", 21);
     jeffCat.setProperty("owner", (String) null);
-    jeffCat.save(); // PUT if by name/uuid, otherwise POST
 
     UsergridEntity brandonCat =  UsergridEntity.copyOf(jeffCat);
 
-    jeffCat.post(); // POST to default client to create, fails if exists?
-    jeffCat.put(); // PUT to default client to update, fails if doesn't exist?
-    jeffCat.delete(); // DELETE to default client
+    jeffCat.POST(); // POST to default client to create, fails if exists?
+    jeffCat.PUT(); // PUT to default client to update, fails if doesn't exist?
+    jeffCat.DELETE(); // DELETE to default client
 //    pet.patch(); // PATCH to update individual fields?
 
 
@@ -114,9 +116,8 @@ public class ApigeeExample1 {
     owner.changeType("owner");
     owner.setProperty("name", "jeff");
     owner.setProperty("age", 15);
-    owner.save();
 
-    owner.connect(jeffCat, "owns");
+    owner.createConnection(jeffCat, "owns");
 
     // consider for v2 api
     //    /_entities/{collection}:{name}
@@ -136,6 +137,7 @@ public class ApigeeExample1 {
         .asc("dogs")
         .build();
 
-    q.get();
+    QueryResult qr = q.GET();
+
   }
 }

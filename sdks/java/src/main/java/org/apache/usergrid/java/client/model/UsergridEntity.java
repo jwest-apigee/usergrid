@@ -20,9 +20,12 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.POJONode;
 import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.exception.ClientException;
-import org.apache.usergrid.java.client.response.ApiResponse;
+import org.apache.usergrid.java.client.response.UsergridResponse;
 import org.apache.usergrid.java.client.utils.JsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +34,6 @@ import java.util.*;
 
 import static org.apache.usergrid.java.client.utils.JsonUtils.*;
 import static org.apache.usergrid.java.client.utils.MapUtils.newMapWithoutKeys;
-import static org.apache.usergrid.java.client.utils.ObjectUtils.isEmpty;
 
 public class UsergridEntity {
 
@@ -42,22 +44,22 @@ public class UsergridEntity {
   public final static String PROPERTY_TYPE = "type";
   public static final String STR_NAME = "name";
 
-  public static Map<String, Class<? extends UsergridEntity>> CLASS_FOR_ENTITY_TYPE = new HashMap<String, Class<? extends UsergridEntity>>();
+  public static Map<String, Class<? extends UsergridEntity>> CLASS_FOR_ENTITY_TYPE = new HashMap<>();
 
   static {
     CLASS_FOR_ENTITY_TYPE.put(User.ENTITY_TYPE, User.class);
   }
 
-  protected Map<String, JsonNode> properties = new HashMap<String, JsonNode>();
+  protected Map<String, JsonNode> properties = new HashMap<>();
 
   public UsergridEntity() {
   }
 
-  public UsergridEntity(String type) {
+  public UsergridEntity(final String type) {
     changeType(type);
   }
 
-  public UsergridEntity(UsergridEntity fromCopy) {
+  public UsergridEntity(final UsergridEntity fromCopy) {
 
   }
 
@@ -92,6 +94,10 @@ public class UsergridEntity {
     return getUUIDProperty(properties, PROPERTY_UUID);
   }
 
+  public String getUuidString() {
+    return getStringProperty(PROPERTY_UUID);
+  }
+
   public void setUuid(UUID uuid) {
     setUUIDProperty(properties, PROPERTY_UUID, uuid);
   }
@@ -102,7 +108,8 @@ public class UsergridEntity {
   }
 
   @JsonAnySetter
-  public void setProperty(String name, JsonNode value) {
+  public void setProperty(final String name,
+                          final JsonNode value) {
     if (value == null) {
       properties.remove(name);
     } else {
@@ -164,11 +171,14 @@ public class UsergridEntity {
     return toType(this, t);
   }
 
-  public static <T extends UsergridEntity> T toType(UsergridEntity usergridEntity, Class<T> t) {
+  public static <T extends UsergridEntity> T toType(final UsergridEntity usergridEntity,
+                                                    final Class<T> t) {
     if (usergridEntity == null) {
       return null;
     }
+
     T newEntity = null;
+
     if (usergridEntity.getClass().isAssignableFrom(t)) {
       try {
         newEntity = (t.newInstance());
@@ -180,12 +190,15 @@ public class UsergridEntity {
         e.printStackTrace();
       }
     }
+
     return newEntity;
   }
 
-  public static <T extends UsergridEntity> List<T> toType(List<UsergridEntity> entities,
-                                                          Class<T> t) {
+  public static <T extends UsergridEntity> List<T> toType(final List<UsergridEntity> entities,
+                                                          final Class<T> t) {
+
     List<T> l = new ArrayList<T>(entities != null ? entities.size() : 0);
+
     if (entities != null) {
       for (UsergridEntity usergridEntity : entities) {
         T newEntity = usergridEntity.toType(t);
@@ -194,44 +207,18 @@ public class UsergridEntity {
         }
       }
     }
+
     return l;
   }
 
-  public void save() throws ClientException {
+  /**
+   * Performs a DELETE of this entity using the Singleton client
+   *
+   * @throws ClientException
+   */
+  public UsergridResponse DELETE() throws ClientException {
 
-    ApiResponse response = Usergrid.getInstance().save(this);
-    //todo error checking on response : Done
-    if ((response != null) && !isEmpty(response.getError())) {
-      log.error("Client.apiRequest(): Response error: "
-              + response.getError());
-      if (!isEmpty(response.getException())) {
-        log.error("Client.apiRequest(): Response exception: "
-                + response.getException());
-      }
-    }
-
-    UsergridEntity first = response.getFirstEntity();
-
-    String uuid = first.getStringProperty(STR_UUID);
-    this.setUuid(UUID.fromString(uuid));
-  }
-
-  public void delete() throws ClientException {
-    // check for one of: name, uuid, error if not found
-    if ( this.getUuid() == null && this.getStringProperty("name") == null)
-      throw new IllegalArgumentException("No name or uuid is present for the entity. Invalid argument");
-
-    ApiResponse response = Usergrid.getInstance().delete(this);
-    //todo error checking on response : Done
-    if ((response != null) && !isEmpty(response.getError())) {
-      log.error("Client.apiRequest(): Response error: "
-              + response.getError());
-      if (!isEmpty(response.getException())) {
-        log.error("Client.apiRequest(): Response exception: "
-                + response.getException());
-      }
-    }
-
+    return Usergrid.getInstance().DELETE(this);
   }
 
   public String getStringProperty(String name) {
@@ -243,65 +230,136 @@ public class UsergridEntity {
   }
 
 
-  public void post() throws ClientException {
+  /**
+   * Performs a POST of the entity using the Singleton client
+   *
+   * @throws ClientException
+   */
+  public UsergridResponse POST() throws ClientException {
 
-    ApiResponse response = Usergrid.getInstance().post(this);
+    UsergridResponse response = Usergrid.getInstance().POST(this);
+    if (response != null) {
+      UsergridEntity first = response.first();
+      this.refresh(first);
 
-    //todo error checking on response : Done
-    if ((response != null) && !isEmpty(response.getError())) {
-      log.error("Client.apiRequest(): Response error: "
-              + response.getError());
-      if (!isEmpty(response.getException())) {
-        log.error("Client.apiRequest(): Response exception: "
-                + response.getException());
-      }
+      return response;
     }
 
-    System.out.println(response);
-    UsergridEntity first = response.getFirstEntity();
-    String uuid = first.getStringProperty(STR_UUID);
-    this.setUuid(UUID.fromString(uuid));
+    throw new ClientException("Response was null on POST!");
   }
 
-  public void put() throws ClientException {
+  /**
+   * Performs a PUT of this entity using the Singleton client
+   *
+   * @throws ClientException
+   */
+  public UsergridResponse PUT() throws ClientException {
 
     // check for one of: name, uuid, error if not found
-    if ( this.getUuid() == null && this.getStringProperty("name") == null)
-       throw new IllegalArgumentException("No name or uuid is present for the entity. Invalid argument");
+    if (this.getUuid() == null && this.getStringProperty("name") == null)
+      throw new IllegalArgumentException("No name or uuid is present for the entity. Invalid argument");
 
-    ApiResponse response = Usergrid.getInstance().put(this);
-    //todo error checking on response : Done
-    if ((response != null) && !isEmpty(response.getError())) {
-      log.error("Client.apiRequest(): Response error: "
-              + response.getError());
-      if (!isEmpty(response.getException())) {
-        log.error("Client.apiRequest(): Response exception: "
-                + response.getException());
-      }
-    }
+    UsergridResponse response = Usergrid.getInstance().PUT(this);
 
-    System.out.println(response);
-    String uuid = response.getFirstEntity().getStringProperty(STR_UUID);
+    this.refresh(response.first());
+
+    return response;
+  }
+
+  /**
+   * Will refresh this object with a response from the server.  For example, when you do a POST and get back the
+   * entity after a POST and setting the UUID
+   *
+   * @param newEntity
+   */
+  private void refresh(final UsergridEntity newEntity) {
+    if (newEntity == null)
+      return;
+
+    String uuid = newEntity.getStringProperty(STR_UUID);
 
     // make sure there is an entity and a uuid
     this.setUuid(UUID.fromString(uuid));
+
+    //todo - what else?
   }
 
-  public Connection connect(UsergridEntity target, String connectionType) throws ClientException {
+  public Connection createConnection(final UsergridEntity target,
+                                     final String connectionType) throws ClientException {
 
     // check for one of: name, uuid, error if not found
 
-    ApiResponse response = Usergrid.getInstance().connectEntities(
-        this.getType(),
-        this.getUuid() != null ? this.getUuid().toString() : this.getStringProperty(STR_NAME),
-        connectionType,
-        target.getUuid() != null ? target.getUuid().toString() : target.getStringProperty(STR_NAME));
+    UsergridResponse response = this.connect(target, connectionType);
+    //todo check to make sure it worked
 
-    //todo - check to make sure it worked
     return new Connection(this, connectionType, target);
   }
 
-  public static UsergridEntity copyOf(UsergridEntity fromEntity) {
+  public UsergridResponse connect(final UsergridEntity target,
+                                  final String connectionType) throws ClientException {
+
+    if (target.getUuid() != null) {
+      return Usergrid.getInstance().connectEntities(
+          this.getType(),
+          this.getUuid() != null ? this.getUuid().toString() : this.getName(),
+          connectionType,
+          target.getUuid().toString());
+
+    } else if (target.getType() != null && target.getName() != null) {
+      return Usergrid.getInstance().connectEntities(
+          this.getType(),
+          this.getUuid() != null ? this.getUuid().toString() : this.getName(),
+          connectionType,
+          target.getType(),
+          target.getName());
+
+    } else {
+      throw new IllegalArgumentException("One of UUID or Type+Name is required for the target entity of the connection");
+    }
+  }
+
+  public static UsergridEntity copyOf(final UsergridEntity fromEntity) {
     return null;
+  }
+
+  /**
+   * Retrieves an Entity by type and name
+   *
+   * @param collectionName the name of the collection
+   * @param name           the name or UUID of the object
+   * @return
+   */
+  public static UsergridEntity GET(String collectionName, String name) {
+    return Usergrid.getInstance().getEntity(collectionName, name).first();
+  }
+
+  /**
+   * Will effectively delete a property when it is set to null.  The property will not be
+   * removed from the entity on the server side until a PUT is made
+   *
+   * @param propertyName
+   */
+  public void deleteProperty(String propertyName) {
+
+    setProperty(propertyName, "");
+  }
+
+  public String getName() {
+    return getStringProperty(STR_NAME);
+  }
+
+  /**
+   * Set the location of an entity
+   *
+   * @param latitude
+   * @param longitude
+   */
+  public void setLocation(float latitude, float longitude) {
+    ObjectMapper mapper = new ObjectMapper();
+    ObjectNode rootNode = mapper.createObjectNode(); // will be of type ObjectNode
+    rootNode.put("latitude", latitude);
+    rootNode.put("longitude", longitude);
+
+    setObjectProperty(properties, "location", rootNode);
   }
 }

@@ -1,7 +1,7 @@
 package com.apigee.sdk;
 
-import org.apache.usergrid.java.client.Client;
 import org.apache.usergrid.java.client.Usergrid;
+import org.apache.usergrid.java.client.UsergridClient;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,7 +19,7 @@ public class ApigeeSDK {
 
   private static Map<String, ApiClient> apiClients_;
 
-  public static Usergrid initUsergridClient(String apiUrl, String orgName, String appName) {
+  public static UsergridClient initUsergridClient(String apiUrl, String orgName, String appName) {
     Usergrid.initialize(apiUrl, orgName, appName);
     return Usergrid.getInstance();
   }

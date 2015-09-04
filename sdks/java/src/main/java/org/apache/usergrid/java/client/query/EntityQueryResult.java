@@ -1,7 +1,8 @@
 package org.apache.usergrid.java.client.query;
 
-import org.apache.usergrid.java.client.Usergrid;
-import org.apache.usergrid.java.client.response.ApiResponse;
+import org.apache.usergrid.java.client.UsergridClient;
+import org.apache.usergrid.java.client.model.UsergridEntity;
+import org.apache.usergrid.java.client.response.UsergridResponse;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -9,17 +10,19 @@ import java.util.Map;
 /**
  * Created by ApigeeCorporation on 7/27/15.
  */
-public class EntityQueryResult implements QueryResult {
+public class EntityQueryResult implements LegacyQueryResult {
 
   final String method;
   final Map<String, Object> params;
   final Object data;
   final String[] segments;
-  final ApiResponse lastResponse;
-  final Usergrid usergrid;
+  final UsergridResponse lastResponse;
+  final UsergridClient usergrid;
 
-  public EntityQueryResult(final Usergrid usergrid,
-                           final ApiResponse lastResponse,
+
+
+  public EntityQueryResult(final UsergridClient usergrid,
+                           final UsergridResponse lastResponse,
                            final String method,
                            final Map<String, Object> params,
                            final Object data,
@@ -33,8 +36,8 @@ public class EntityQueryResult implements QueryResult {
     this.segments = segments;
   }
 
-  private EntityQueryResult(final Usergrid usergrid,
-                            final ApiResponse lastResponse,
+  private EntityQueryResult(final UsergridClient usergrid,
+                            final UsergridResponse lastResponse,
                             final EntityQueryResult q) {
 
     this.usergrid = usergrid;
@@ -48,7 +51,7 @@ public class EntityQueryResult implements QueryResult {
   /**
    * @return the api lastResponse of the last request
    */
-  public ApiResponse getLastResponse() {
+  public UsergridResponse getLastResponse() {
     return lastResponse;
   }
 
@@ -67,7 +70,7 @@ public class EntityQueryResult implements QueryResult {
    *
    * @return query that contains results and where to get more from.
    */
-  public QueryResult next() {
+  public LegacyQueryResult next() {
 
     if (more()) {
 
@@ -84,11 +87,16 @@ public class EntityQueryResult implements QueryResult {
 
       nextParams.put("cursor", lastResponse.getCursor());
 
-      ApiResponse nextResponse = this.usergrid.apiRequest(method, nextParams, data, segments);
+      UsergridResponse nextResponse = this.usergrid.apiRequest(method, nextParams, data, segments);
 
       return new EntityQueryResult(this.usergrid, nextResponse, this);
     }
 
+    return null;
+  }
+
+  @Override
+  public UsergridEntity first() {
     return null;
   }
 

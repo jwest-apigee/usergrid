@@ -1,6 +1,5 @@
 import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.UsergridClient;
-import org.apache.usergrid.java.client.model.Connection;
 import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.query.QueryResult;
 import org.apache.usergrid.java.client.query.UsergridQuery;
@@ -13,13 +12,14 @@ import java.util.HashMap;
 /**
  * Created by ApigeeCorporation on 6/26/15.
  */
-public class ExampleClientV2 {
+public class JeffTest {
 
   public static final String APP_CLIENT_ID = "YXA6WMhAuFJTEeWoggrRE9kXrQ";
   public static final String APP_CLIENT_SECRET = "YXA6_Nn__Xvx8rEwsYaKgEm5SWFwtJ0";
   public static final String USERGRID_URL = "https://api-connectors-prod.apigee.net/appservices";
   public static final String ORG_NAME = "api-connectors";
   public static final String APP_NAME = "sdksandbox";
+  public static final String COLLECTION = "Morepet";
 
   public static void main(String[] args) {
 
@@ -31,56 +31,41 @@ public class ExampleClientV2 {
 
     UsergridResponse r = client.authorizeAppClient(APP_CLIENT_ID, APP_CLIENT_SECRET);
 
-    UsergridEntity petMax = new UsergridEntity("pet");
-    petMax.setProperty("name", "max")
-        .setProperty("age", 15)
-        .setProperty("weight", 21)
-        .setProperty("owner", (String) null);
+    System.out.println(r.getAccessToken());
 
-    // these functions will use the singleton client instance
-//    r = petMax.PUT();
+    // new query builder
+    UsergridQuery q = null;
 
-//    r = Usergrid.GET("pet", "max");
-//    UsergridEntity e = Usergrid.GET("pet", "max").first();
+    UsergridEntity e = Usergrid.GET("pets", "max").first();
+    e.PUT();
 
-//    petMax.PUT(); // PUT to default client to update, fails if doesn't exist?
-//    petMax.DELETE(); // DELETE to default client
-
-//    client.DELETE(petMax);
-//    client.DELETE("type", "<name|UUID>");
-
-    UsergridEntity owner = new UsergridEntity();
-    owner.changeType("owner");
-    owner.setProperty("name", "jeff");
-    owner.setProperty("age", 15);
-//    r = owner.PUT();
-
-    // new function to create connections (singleton instance)
-//    Connection conn = owner.createConnection(petMax, "owns");
-//    UsergridResponse connRes = owner.connect(petMax, "owns");
+    QueryResult qr = null;
 
     for (int x = 0; x < 20; x++) {
-      UsergridEntity pet = new UsergridEntity("pet");
+      UsergridEntity pet = new UsergridEntity(COLLECTION);
       pet.setProperty("name", "pet-" + x);
       pet.setProperty("age", x);
-      pet.setLocation(-12.123123f, -12.123123f);
+      pet.setLocation(-1, -2);
       pet.PUT();
     }
 
+    try{
+      Thread.sleep(1000);
+    } catch (InterruptedException e1) {
+      e1.printStackTrace();
+    }
+
+    System.out.println("GETTING by query...");
+
     // new query builder
-    UsergridQuery q = new UsergridQuery.Builder()
-        .collection("pets")
-        .limit(5)
-        .gt("age", 0)
-        .lte("age", 15)
-        .locationWithin(5.0f, -12.123123f, -12.123123f)
-        .desc("age")
+    q = new UsergridQuery.Builder()
+        .collection(COLLECTION)
+        .limit(500)
+        .locationWithin(5.0, -1, -20)
         .build();
 
     // singleton operation
-    QueryResult qr = Usergrid.getInstance().GET(q);
-    UsergridEntity first = qr.first();
-    UsergridEntity last = qr.last();
+    qr = Usergrid.getInstance().GET(q);
 
     boolean keepGoing = true;
 
@@ -96,10 +81,32 @@ public class ExampleClientV2 {
         keepGoing = false;
     }
 
+    HashMap<String, Object> update = new HashMap<>();
 
-    qr = q.GET();
+    update.put("JeffWest", "WuzHere");
+//
+//    System.out.println("PUT!");
+//    QueryResult rput = q.PUT(update);
+//
+//    System.out.println("SIzE: " + rput.getEntities().size());
 
-    QueryResult rput = q.PUT(new HashMap<String, Object>());
-//    UsergridResponse rdel = q.DELETE();
+    System.out.println("DELETE!");
+    QueryResult rdel = q.DELETE();
+
+    System.out.println("SIzE: " + rdel.getEntities().size());
+
+    keepGoing = true;
+
+    while (keepGoing) {
+
+      for (UsergridEntity entity : rdel) {
+        System.out.println(entity);
+      }
+
+      if (rdel.hasMorePages())
+        rdel = rdel.retrieveNextPage();
+      else
+        keepGoing = false;
+    }
   }
 }

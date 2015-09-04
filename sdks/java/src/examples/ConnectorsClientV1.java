@@ -1,6 +1,6 @@
 import org.apache.usergrid.java.client.Client;
 import org.apache.usergrid.java.client.model.UsergridEntity;
-import org.apache.usergrid.java.client.response.ApiResponse;
+import org.apache.usergrid.java.client.response.UsergridResponse;
 
 /**
  * Created by ApigeeCorporation on 6/26/15.
@@ -17,7 +17,7 @@ public class  ConnectorsClientV1 {
         .withOrganizationId("api-connectors")
         .withApplicationId("blueprints");
 
-    ApiResponse response = client.authorizeAppClient(client_id, client_secret);
+    UsergridResponse response = client.authorizeAppClient(client_id, client_secret);
 
     System.out.println(response);
 
@@ -31,7 +31,7 @@ public class  ConnectorsClientV1 {
     e.setProperty("age", 15);
     e.setProperty("owner", "jeff");
 
-    ApiResponse entityResponse = client.createEntity(e);
+    UsergridResponse entityResponse = client.createEntity(e);
 
     System.out.println(entityResponse);
   }

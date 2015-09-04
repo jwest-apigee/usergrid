@@ -1,12 +1,10 @@
 package org.apache.usergrid.java.client.query;
 
 import org.apache.usergrid.java.client.Usergrid;
-import org.apache.usergrid.java.client.response.ApiResponse;
+import org.apache.usergrid.java.client.response.UsergridResponse;
 
 import java.net.URLEncoder;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by ApigeeCorporation on 7/1/15.
@@ -21,6 +19,15 @@ public class UsergridQuery {
   public static final String AMPERSAND = "&";
   public static final String SPACE = " ";
   public static final String ASTERISK = "*";
+  private static final String APOSTROPHE = "'";
+  private static final String COMMA = ",";
+  private static final String CONTAINS = " contains ";
+  private static final String IN = " in ";
+  private static final String OF = " of ";
+  private static final String QL = "ql";
+  private static final String UTF8 = "UTF-8";
+  private static final String WITHIN = " within ";
+
   private final Builder builder;
 
   public static void main(String[] args) {
@@ -41,62 +48,21 @@ public class UsergridQuery {
     this.builder = builder;
   }
 
+  public Builder getBuilder() {
+    return builder;
+  }
+
   public String build() {
-    String urlAppend = "";
-    boolean hasContent = false;
 
-    if (this.builder.requirements.size() > 0) {
-      String qlString = "";
+    String selectString = this.builder.getSelectString();
 
-      for (int i = 0; i < this.builder.requirements.size(); i++) {
+    String predicateString = this.builder.getPredicateString();
 
-        if (i > 0) {
-          qlString += AND;
-        }
+    String urlAppend = "?" + QL + "=" + selectString + " " + predicateString;
 
-        qlString += this.builder.requirements.get(i);
-      }
+    urlAppend += AMPERSAND + this.builder.getQueryParameterString();
 
-      if (this.builder.orderClauses != null && this.builder.orderClauses.size() > 0) {
-        for (int i = 0; i < this.builder.orderClauses.size(); i++) {
-
-          if (i == 0) {
-            qlString += ORDER_BY;
-          }
-          SortTerm term = this.builder.orderClauses.get(i);
-
-          qlString += term.term + SPACE + term.order;
-
-          if (i < this.builder.orderClauses.size() - 1) {
-            qlString += COMMA;
-          }
-        }
-      }
-
-
-//      qlString = QueryResult.encode(qlString);
-      urlAppend = QL + EQUALS + qlString;
-      hasContent = true;
-    }
-
-    if (this.builder.urlTerms.size() > 0) {
-
-      for (String urlTerm : this.builder.urlTerms) {
-
-        if (hasContent) {
-          urlAppend += AMPERSAND + urlTerm;
-        }
-
-        hasContent = true;
-      }
-    }
-
-    //todo finish
-
-    if (this.builder.limit != Integer.MIN_VALUE) {
-    }
-
-    return urlAppend;
+    return this.builder.collectionName + urlAppend;
   }
 
   private static String encode(final String stringValue) {
@@ -109,21 +75,40 @@ public class UsergridQuery {
     return escapedString;
   }
 
-  public QueryResult get() {
-    return Usergrid.getInstance().get(this);
+  public QueryResult GET() {
+    return Usergrid.getInstance().GET(this);
   }
 
-  public ApiResponse put(Map<String, Object> fields) {
-    return Usergrid.getInstance().put(this, fields);
+  public QueryResult DELETE() {
+    return Usergrid.getInstance().DELETE(this);
   }
+
+  public QueryResult PUT(final Map<String, Object> stringObjectHashMap) {
+    return Usergrid.getInstance().PUT(this, stringObjectHashMap);
+  }
+
+
+  public HashMap<String, Object> params() {
+    HashMap<String, Object> items = new HashMap<>();
+
+    items.putAll(builder.urlTerms);
+    items.put("ql", builder.getSelectString() + builder.getPredicateString());
+
+    return items;
+  }
+
+  public String getCollectionName() {
+    return builder.collectionName;
+  }
+
 
   public static class Builder {
 
-    public final ArrayList<String> requirements = new ArrayList<String>();
-    public final ArrayList<String> urlTerms = new ArrayList<String>();
+    public final ArrayList<String> requirements = new ArrayList<>();
+    public final Map<String, String> urlTerms = new HashMap<>(11);
     public String collectionName;
-    public int limit = Integer.MIN_VALUE;
     public List<SortTerm> orderClauses;
+    public Set<String> selectFields;
 
     public Builder() {
     }
@@ -183,10 +168,17 @@ public class UsergridQuery {
       return this;
     }
 
-    public Builder locationWithin(final String term, final float distance, final float latitude, final float longitude) {
-      if (term != null) {
-        addRequirement(term + WITHIN + distance + OF + latitude + COMMA + longitude);
-      }
+    public Builder locationWithin(final float distance, final float latitude, final float longitude) {
+
+      addRequirement("location " + WITHIN + distance + OF + latitude + COMMA + longitude);
+
+      return this;
+    }
+
+    public Builder locationWithin(final double distance, final double latitude, final double longitude) {
+
+      addRequirement("location " + WITHIN + distance + OF + latitude + COMMA + longitude);
+
       return this;
     }
 
@@ -194,17 +186,20 @@ public class UsergridQuery {
       if (collectionName != null) {
         this.collectionName = collectionName;
       }
+
       return this;
     }
 
     public Builder urlTerm(final String urlTerm, final String equalsValue) {
       if (urlTerm != null && equalsValue != null) {
+
         if (urlTerm.equalsIgnoreCase(QL)) {
           ql(equalsValue);
         } else {
-          urlTerms.add(UsergridQuery.encode(urlTerm) + "=" + UsergridQuery.encode(equalsValue));
+          urlTerms.put(UsergridQuery.encode(urlTerm), UsergridQuery.encode(equalsValue));
         }
       }
+
       return this;
     }
 
@@ -212,6 +207,7 @@ public class UsergridQuery {
       if (value != null) {
         addRequirement(value);
       }
+
       return this;
     }
 
@@ -335,13 +331,103 @@ public class UsergridQuery {
     }
 
     public Builder limit(int limit) {
-      this.limit = limit;
+
+      this.urlTerm("limit", String.valueOf(limit));
       return this;
+    }
+
+    public Builder cursor(String cursor) {
+      this.urlTerm("cursor", cursor);
+      return this;
+    }
+
+    public Builder field(String field) {
+      if (selectFields == null) {
+        selectFields = new HashSet<>(3);
+      }
+
+      selectFields.add(field);
+
+      return this;
+    }
+
+    public String getSelectString() {
+      if (this.selectFields == null || this.selectFields.size() == 0)
+        return "select * ";
+
+      String selectString = "select ";
+      String appendString = ", ";
+
+      for (String field : this.selectFields)
+        selectString += field + appendString;
+
+      return selectString.substring(0, selectString.length() - appendString.length());
+    }
+
+    public String getQueryParameterString() {
+      String qparamString = "";
+
+      if (this.urlTerms.size() > 0) {
+
+        for (Map.Entry<String, String> urlTermPair : this.urlTerms.entrySet()) {
+
+          String urlTerm = urlTermPair.getKey();
+          String equalsValue = urlTermPair.getValue();
+          if (qparamString.length() > 0)
+            qparamString += AMPERSAND;
+
+          qparamString += UsergridQuery.encode(urlTerm) + "=" + UsergridQuery.encode(equalsValue);
+        }
+
+      }
+      return qparamString;
+    }
+
+    public String getPredicateString() {
+
+      String predicatesString = "";
+
+      for (int i = 0; i < this.requirements.size(); i++) {
+
+        if (i > 0) {
+          predicatesString += AND;
+        }
+
+        predicatesString += this.requirements.get(i);
+      }
+
+      String qlString = "";
+
+      if (this.requirements.size() > 0)
+        qlString = " WHERE " + predicatesString;
+
+      if (this.orderClauses != null && this.orderClauses.size() > 0) {
+        for (int i = 0; i < this.orderClauses.size(); i++) {
+
+          if (i == 0) {
+            qlString += ORDER_BY;
+          }
+          SortTerm term = this.orderClauses.get(i);
+
+          qlString += term.term + SPACE + term.order;
+
+          if (i < this.orderClauses.size() - 1) {
+            qlString += COMMA;
+          }
+        }
+      }
+
+      return qlString;
     }
   }
 
   private enum QUERY_OPERATION {
-    EQUAL(" = "), GREATER_THAN(" > "), GREATER_THAN_EQUAL_TO(" >= "), LESS_THAN(" < "), LESS_THAN_EQUAL_TO(" <= ");
+    EQUAL(" = "),
+    GREATER_THAN(" > "),
+    GREATER_THAN_EQUAL_TO(" >= "),
+    LESS_THAN(" < "),
+    LESS_THAN_EQUAL_TO(" <= ");
+
     private final String stringValue;
 
     QUERY_OPERATION(final String s) {
@@ -352,13 +438,6 @@ public class UsergridQuery {
       return this.stringValue;
     }
   }
-
-  private static final String APOSTROPHE = "'";
-  private static final String COMMA = ",";
-  private static final String CONTAINS = " contains ";
-  private static final String IN = " in ";
-  private static final String OF = " of ";
-  private static final String QL = "ql";
-  private static final String UTF8 = "UTF-8";
-  private static final String WITHIN = " within ";
 }
+
+
