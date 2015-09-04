@@ -49,8 +49,8 @@ public class JeffTest {
       pet.PUT();
     }
 
-    try{
-      Thread.sleep(1000);
+    try {
+      Thread.sleep(3000);
     } catch (InterruptedException e1) {
       e1.printStackTrace();
     }
@@ -61,7 +61,7 @@ public class JeffTest {
     q = new UsergridQuery.Builder()
         .collection(COLLECTION)
         .limit(500)
-        .locationWithin(5.0, -1, -20)
+        .locationWithin(5.0, -1, -2)
         .build();
 
     // singleton operation
@@ -82,31 +82,15 @@ public class JeffTest {
     }
 
     HashMap<String, Object> update = new HashMap<>();
-
     update.put("JeffWest", "WuzHere");
-//
-//    System.out.println("PUT!");
-//    QueryResult rput = q.PUT(update);
-//
-//    System.out.println("SIzE: " + rput.getEntities().size());
+    System.out.println("PUT!");
+    QueryResult rput = q.PUT(update);
+
+    System.out.println("PUT SIzE: " + rput.getEntities().size());
 
     System.out.println("DELETE!");
     QueryResult rdel = q.DELETE();
 
-    System.out.println("SIzE: " + rdel.getEntities().size());
-
-    keepGoing = true;
-
-    while (keepGoing) {
-
-      for (UsergridEntity entity : rdel) {
-        System.out.println(entity);
-      }
-
-      if (rdel.hasMorePages())
-        rdel = rdel.retrieveNextPage();
-      else
-        keepGoing = false;
-    }
+    System.out.println("DELETE SIzE: " + rdel.getEntities().size());
   }
 }
