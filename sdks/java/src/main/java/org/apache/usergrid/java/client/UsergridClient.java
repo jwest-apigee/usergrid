@@ -365,7 +365,7 @@ public class UsergridClient {
             null,
             UsergridResponse.class);
       }
-    } catch (BadRequestException badRequestException) {
+    } catch (Exception badRequestException) {
       return UsergridResponse.fromException(badRequestException);
     }
 

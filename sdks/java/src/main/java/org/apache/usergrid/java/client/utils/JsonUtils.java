@@ -204,6 +204,7 @@ public class JsonUtils {
   public static <T> T getProperty(final Map<String, JsonNode> properties,
                                   final String name) {
     JsonNode value = properties.get(name);
+
     if (value instanceof TextNode) {
       return (T) value.asText();
     } else if (value instanceof LongNode) {

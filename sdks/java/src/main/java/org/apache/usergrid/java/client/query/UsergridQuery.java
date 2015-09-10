@@ -120,9 +120,11 @@ public class UsergridQuery {
     }
 
     private Builder addOperationRequirement(final String term, final QUERY_OPERATION operation, final String value) {
+
       if (term != null && operation != null && value != null) {
-        this.addRequirement(term + operation.toString() + value);
+        this.addRequirement(term + operation.toString() + APOSTROPHE + value + APOSTROPHE);
       }
+
       return this;
     }
 

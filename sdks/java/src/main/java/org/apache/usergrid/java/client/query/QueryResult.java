@@ -13,15 +13,17 @@ import java.util.function.Consumer;
 public class QueryResult
     implements Iterable<UsergridEntity> {
 
-  UsergridClient usergridClient;
-  String verb;
-  UsergridResponse r;
-  UsergridQuery q;
-  QueryResult previousQueryResult;
-  QueryResult nextQueryResult;
-  List<UsergridEntity> entities;
-  int entityPointer = 0;
-  Map<String, Object> fields;
+  private UsergridClient usergridClient;
+  private String verb;
+  private UsergridResponse r;
+  private String cursor;
+  private UsergridQuery q;
+  private QueryResult previousQueryResult;
+  private QueryResult nextQueryResult;
+  private List<UsergridEntity> entities;
+  private int entityPointer = 0;
+  private Map<String, Object> fields;
+  private boolean cleared = false;
 
   public QueryResult(final UsergridClient usergridClient,
                      final String verb,
@@ -32,8 +34,10 @@ public class QueryResult
     this.verb = verb;
     this.r = r;
     this.q = q;
+    this.cleared = false;
 
     if (r != null) {
+      this.cursor = r.getCursor();
       this.entities = r.getEntities();
     } else
       this.entities = new ArrayList<>(0);
@@ -77,23 +81,26 @@ public class QueryResult
   }
 
   public List<UsergridEntity> getEntities() {
+    // if not cleared then return entities
+    // otherwise make an API call
+    if (cleared == false) {
+      q.getBuilder().cursor(cursor);
+      QueryResult next = q.GET();
+
+      this.r = next.r;
+    }
+
     return entities;
   }
 
   public boolean hasMorePages() {
-    if (this.r != null) {
-
-      if (this.r.getCursor() != null)
-        return true;
-    }
-
-    return false;
+    return this.cursor != null;
   }
 
   public QueryResult retrieveNextPage() {
 
     if (this.hasMorePages()) {
-      String cursor = this.r.getCursor();
+      String cursor = this.cursor;
       q.getBuilder().cursor(cursor);
       QueryResult next = null;
 
@@ -159,5 +166,58 @@ public class QueryResult
   @Override
   public Spliterator<UsergridEntity> spliterator() {
     return entities.spliterator();
+  }
+
+  private QueryResult findRoot() {
+    QueryResult temp = this;
+
+    // find root
+    while (temp.previousQueryResult != null)
+      temp = temp.previousQueryResult;
+
+    return temp;
+  }
+
+  public void clear() {
+    this.r = null;
+    this.entities.clear();
+    this.cleared = true;
+  }
+
+  public void clearList() {
+    findRoot().destroy();
+  }
+
+  public QueryResult getPage(int number) {
+
+    QueryResult qr = findRoot();
+
+    int x = 0;
+
+    while (x <= number) {
+
+      if (qr.nextQueryResult != null)
+        qr = qr.nextQueryResult;
+
+      else
+        // throw not found
+        break;
+
+      x++;
+    }
+
+    return qr;
+  }
+
+  private void destroy() {
+
+    if (this.nextQueryResult != null)
+      this.nextQueryResult.destroy();
+
+    this.r = null;
+    this.q = null;
+    this.entities.clear();
+
+    this.nextQueryResult = null;
   }
 }

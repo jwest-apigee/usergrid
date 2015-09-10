@@ -29,7 +29,7 @@ public class JeffTest {
     // if you want to have direct access, you can get an instance of the singleton
     UsergridClient client = Usergrid.getInstance();
 
-    UsergridResponse r = client.authorizeAppClient(APP_CLIENT_ID, APP_CLIENT_SECRET);
+    UsergridResponse r = Usergrid.authorizeAppClient(APP_CLIENT_ID, APP_CLIENT_SECRET);
 
     System.out.println(r.getAccessToken());
 

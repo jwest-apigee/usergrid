@@ -354,7 +354,7 @@ public class UsergridEntity {
    * @param latitude
    * @param longitude
    */
-  public void setLocation(float latitude, float longitude) {
+  public void setLocation(double latitude, double longitude) {
     ObjectMapper mapper = new ObjectMapper();
     ObjectNode rootNode = mapper.createObjectNode(); // will be of type ObjectNode
     rootNode.put("latitude", latitude);

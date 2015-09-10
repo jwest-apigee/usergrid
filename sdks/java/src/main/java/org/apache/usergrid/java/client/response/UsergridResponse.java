@@ -35,6 +35,7 @@ import org.apache.usergrid.java.client.model.Message;
 import org.apache.usergrid.java.client.model.User;
 
 import javax.ws.rs.BadRequestException;
+import javax.ws.rs.core.Response;
 
 public class UsergridResponse {
 
@@ -344,7 +345,19 @@ public class UsergridResponse {
     return null;
   }
 
-  public static UsergridResponse fromException(BadRequestException badRequestException) {
-    return null;
+  public static UsergridResponse fromException(Exception ex) {
+    ex.printStackTrace();
+
+    UsergridResponse response = new UsergridResponse();
+    response.setError(ex.getMessage());
+
+    if (ex instanceof BadRequestException) {
+      BadRequestException bre = (BadRequestException) ex;
+      Response r = bre.getResponse();
+
+      response.setStatus(String.valueOf(r.getStatus()));
+    }
+
+    return response;
   }
 }
