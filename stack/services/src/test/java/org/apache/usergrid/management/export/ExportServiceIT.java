@@ -82,6 +82,7 @@ import static org.apache.usergrid.TestHelper.uniqueApp;
 import static org.apache.usergrid.TestHelper.uniqueOrg;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -109,9 +110,6 @@ public class ExportServiceIT {
 
     @Rule
     public NoAWSCredsRule noCredsRule = new NoAWSCredsRule();
-
-    @Autowired
-    private Properties properties;
 
     // app-level data generated only once
     private UserInfo adminUser;
@@ -170,13 +168,13 @@ public class ExportServiceIT {
         adminUser = newOrgAppAdminRule.getAdminInfo();
         organization = newOrgAppAdminRule.getOrganizationInfo();
         applicationId = newOrgAppAdminRule.getApplicationInfo().getId();
-        //bucketPrefix = System.getProperty( "bucket_location" );
-        //bucketName = bucketPrefix ;//+ RandomStringUtils.randomAlphabetic( 10 ).toLowerCase(); //.randomAlphanumeric(10).toLowerCase();
+        bucketPrefix = System.getProperty( "bucket_location" );
+        bucketName = bucketPrefix + RandomStringUtils.randomAlphabetic( 10 ).toLowerCase(); //.randomAlphanumeric(10).toLowerCase();
+        //bucketName =  System.getProperty( "bucket_location" );
 
         AWSCredentials credentials = new BasicAWSCredentials(
             System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR ),
             System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR ));
-        bucketName =  System.getProperty( "bucket_location" );
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol( Protocol.HTTP );
 
@@ -293,11 +291,11 @@ public class ExportServiceIT {
         ExportService exportService = setup.getExportService();
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         OrganizationInfo orgMade = null;
         ApplicationInfo appMade = null;
-        for ( int i = 0; i < 5; i++ ) {
+        //for ( int i = 0; i < 5; i++ ) {
             orgMade = setup.getMgmtSvc().createOrganization( "minorboss" + i, adminUser, true );
             for ( int j = 0; j < 5; j++ ) {
                 appMade = setup.getMgmtSvc().createApplication( orgMade.getUuid(), "superapp" + j );
@@ -315,7 +313,7 @@ public class ExportServiceIT {
                     entNotCopied[index] = customMaker.create( "superappCol" + j, entityLevelProperties );
                 }
             }
-        }
+        //}
 
         payload.put( "organizationId", orgMade.getUuid() );
 
@@ -323,47 +321,107 @@ public class ExportServiceIT {
         UUID exportUUID = exportService.schedule( payload );
         assertNotNull( exportUUID );
 
-        //Thread.sleep( 5000 );
+        //Anything around two seconds isn't enough for s3 so I bumped it up to 4 seconds to be safe.
+        Thread.sleep( 4000 );
 
         logger.info( "Downloading an object" );
 
-        ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
-            .withBucketName( bucketName );
-        ObjectListing objectListing;
-        S3Object exportedS3Object = null;
-        //        do {
-            //the object listing should only contain one object in this case
-            objectListing = s3Client.listObjects(listObjectsRequest);
-            for (S3ObjectSummary objectSummary :
-                objectListing.getObjectSummaries()) {
-                System.out.println( " - " + objectSummary.getKey() + "  " +
-                    "(size = " + objectSummary.getSize() +
-                    ")" );
-                exportedS3Object = s3Client.getObject( bucketName, objectSummary.getKey() );
+        Set<String> s3ObjectList = returnObjectListsFromBucket();
+        assertNotEquals( 0, s3ObjectList.size() );
+
+
+        for ( String s3ObjectKey : s3ObjectList ) {
+
+            TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
+
+            S3ObjectInputStream s3ObjectInputStream = s3Client.getObject( bucketName, s3ObjectKey ).getObjectContent();
+
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> exportJsonEntitiesMap = mapper.readValue( s3ObjectInputStream, typeRef );
+
+            assertNotNull( exportJsonEntitiesMap );
+
+            Map collectionsMap = ( Map ) exportJsonEntitiesMap.get( "collections" );
+            String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+            List collection = ( List ) collectionsMap.get( collectionName );
+
+            for ( Object o : collection ) {
+                Map entityMap = ( Map ) o;
+                Map metadataMap = ( Map ) entityMap.get( "Metadata" );
+                String entityName = ( String ) metadataMap.get( "derp" );
+                assertTrue( "derp doesn't contain bacon? What??", entityName.equals( "bacon" ) );
+            }
+        }
+    }
+
+        //Second we need a way to delete the file and bucket out of s3 once data has been verified.
+        @Test
+        public void testApplicationExport() throws Exception {
+            //Populate a application with data that contains connections.
+            ExportService exportService = setup.getExportService();
+
+            String appName = newOrgAppAdminRule.getApplicationInfo().getName();
+            HashMap<String, Object> payload = payloadBuilder(appName);
+
+            OrganizationInfo orgMade = null;
+            ApplicationInfo appMade = null;
+            for ( int i = 0; i < 5; i++ ) {
+                orgMade = setup.getMgmtSvc().createOrganization( "minorboss" + i, adminUser, true );
+                for ( int j = 0; j < 5; j++ ) {
+                    appMade = setup.getMgmtSvc().createApplication( orgMade.getUuid(), "superapp" + j );
+
+                    EntityManager customMaker = setup.getEmf().getEntityManager( appMade.getId() );
+                    customMaker.createApplicationCollection( "superappCol" + j );
+                    //intialize user object to be posted
+                    Map<String, Object> entityLevelProperties = null;
+                    Entity[] entNotCopied;
+                    entNotCopied = new Entity[1];
+                    //creates entities
+                    for ( int index = 0; index < 1; index++ ) {
+                        entityLevelProperties = new LinkedHashMap<String, Object>();
+                        entityLevelProperties.put( "derp", "bacon" );
+                        entNotCopied[index] = customMaker.create( "superappCol" + j, entityLevelProperties );
+                    }
+                }
             }
 
-        //As part of this test verify that you are getting the correct file back and not just any other written file.
-        assertNotNull( exportedS3Object );
+            payload.put( "organizationId", orgMade.getUuid() );
 
-        TypeReference<HashMap<String,Object>> typeRef = new TypeReference<HashMap<String,Object>>() {};
+            //this kicks off the actual export with a unique bucket and filename.
+            UUID exportUUID = exportService.schedule( payload );
+            assertNotNull( exportUUID );
 
-        S3ObjectInputStream s3ObjectInputStream = exportedS3Object.getObjectContent();
+            //Anything around two seconds isn't enough for s3 so I bumped it up to 5 seconds to be safe.
+            Thread.sleep( 5000 );
 
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String,Object> exportJsonEntitiesMap = mapper.readValue(s3ObjectInputStream, typeRef);
+            logger.info( "Downloading an object" );
 
-        assertNotNull( exportJsonEntitiesMap );
+            Set<String> s3ObjectList = returnObjectListsFromBucket();
+            assertNotEquals( 0,s3ObjectList.size() );
 
-        Map collectionsMap = (Map)exportJsonEntitiesMap.get("collections");
-        String collectionName = (String)collectionsMap.keySet().iterator().next();
-        List collection = (List)collectionsMap.get( collectionName );
 
-        for ( Object o : collection ) {
-            Map entityMap = (Map)o;
-            Map metadataMap = (Map)entityMap.get("Metadata");
-            String entityName = (String)metadataMap.get("derp");
-            assertTrue( "derp doesn't contain bacon? What??",entityName.equals( "bacon" ) );
-        }
+            for(String s3ObjectKey: s3ObjectList) {
+
+                TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
+
+                S3ObjectInputStream s3ObjectInputStream = s3Client.getObject( bucketName, s3ObjectKey ).getObjectContent();
+
+                ObjectMapper mapper = new ObjectMapper();
+                Map<String, Object> exportJsonEntitiesMap = mapper.readValue( s3ObjectInputStream, typeRef );
+
+                assertNotNull( exportJsonEntitiesMap );
+
+                Map collectionsMap = ( Map ) exportJsonEntitiesMap.get( "collections" );
+                String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+                List collection = ( List ) collectionsMap.get( collectionName );
+
+                for ( Object o : collection ) {
+                    Map entityMap = ( Map ) o;
+                    Map metadataMap = ( Map ) entityMap.get( "Metadata" );
+                    String entityName = ( String ) metadataMap.get( "derp" );
+                    assertTrue( "derp doesn't contain bacon? What??", entityName.equals( "bacon" ) );
+                }
+            }
 
         //do what you did below as that is how they are stored. Look at the bucket and make sure its randomized.
 
@@ -1271,8 +1329,8 @@ public class ExportServiceIT {
         ObjectListing objectListing;
         S3Object exportedS3Object = null;
         Set<String> bucketObjectNames = new HashSet<>();
-        //        do {
-        //the object listing should only contain one object in this case
+
+
         objectListing = s3Client.listObjects(listObjectsRequest);
         for (S3ObjectSummary objectSummary :
             objectListing.getObjectSummaries()) {

@@ -100,11 +100,11 @@ public class AwsS3ExportImpl implements S3Export {
 
         logger.debug( "Creating bucket if not already created" );
 
-//        try {
-//            s3Client.createBucket( bucketName );
-//        }catch ( Exception e ){
-//            logger.error( "creating the bucket failed due to \""+e.getMessage()+"\"");
-//        }
+        try {
+            s3Client.createBucket( bucketName );
+        }catch ( Exception e ){
+            logger.error( "creating the bucket failed due to \""+e.getMessage()+"\"");
+        }
 
 
         //Multipart upload of the file if it is >5mb otherwise
