@@ -295,7 +295,7 @@ public class ExportServiceIT {
 
         OrganizationInfo orgMade = null;
         ApplicationInfo appMade = null;
-        //for ( int i = 0; i < 5; i++ ) {
+        for ( int i = 0; i < 5; i++ ) {
             orgMade = setup.getMgmtSvc().createOrganization( "minorboss" + i, adminUser, true );
             for ( int j = 0; j < 5; j++ ) {
                 appMade = setup.getMgmtSvc().createApplication( orgMade.getUuid(), "superapp" + j );
@@ -313,7 +313,7 @@ public class ExportServiceIT {
                     entNotCopied[index] = customMaker.create( "superappCol" + j, entityLevelProperties );
                 }
             }
-        //}
+        }
 
         payload.put( "organizationId", orgMade.getUuid() );
 
