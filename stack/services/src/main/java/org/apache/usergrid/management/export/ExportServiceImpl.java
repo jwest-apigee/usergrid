@@ -210,7 +210,7 @@ public class ExportServiceImpl implements ExportService {
                 s3Export = ( S3Export ) s3PlaceHolder;
             }
             else {
-                s3Export = new S3ExportImpl();
+                s3Export = new AwsS3ExportImpl();
             }
         }
         catch ( Exception e ) {
