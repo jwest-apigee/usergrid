@@ -42,6 +42,7 @@ import org.apache.usergrid.persistence.entities.Export;
 import org.apache.usergrid.persistence.entities.JobData;
 import org.apache.usergrid.persistence.Query;
 import org.apache.usergrid.persistence.Query.Level;
+import org.apache.usergrid.services.users.UsersService;
 
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -61,14 +62,16 @@ public class ExportServiceImpl implements ExportService {
     private static final Logger logger = LoggerFactory.getLogger( ExportServiceImpl.class );
     public static final String EXPORT_ID = "exportId";
     public static final String EXPORT_JOB_NAME = "exportJob";
-    //dependency injection
+    //Injected scheduler service to run the job through the scheduler.
     private SchedulerService sch;
 
-    //injected the Entity Manager Factory
+    //injected the Entity Manager Factory to access entity manager
     protected EntityManagerFactory emf;
 
     //inject Management Service to access Organization Data
     private ManagementService managementService;
+
+    //inject service manager to get connections
 
     //Maximum amount of entities retrieved in a single go.
     public static final int MAX_ENTITY_FETCH = 1000;
@@ -502,15 +505,20 @@ public class ExportServiceImpl implements ExportService {
         jg.writeFieldName( "connections" );
         jg.writeStartObject();
 
-        Set<String> connectionTypes = em.getConnectionTypes( entity );
+       // em.getConn
+        //Set<String> connectionTypes = em.getConnectionTypes( entity );
+        Set<String> connectionTypes = em.getConnectionsAsSource( entity );
         for ( String connectionType : connectionTypes ) {
 
             jg.writeFieldName( connectionType );
             jg.writeStartArray();
 
-            Results results = em.getTargetEntities(
-                new SimpleEntityRef(entity.getType(), entity.getUuid()),
-                connectionType, null, Level.IDS);
+
+            Results results = em.getTargetEntities( entity,connectionType, null, Level.IDS );
+            //em.getTarget
+//            Results results = em.getTargetEntities(
+//                new SimpleEntityRef(entity.getType(), entity.getUuid()),
+//                connectionType, null, Level.IDS);
 
             List<ConnectionRef> connections = results.getConnections();
 
@@ -602,7 +610,6 @@ public class ExportServiceImpl implements ExportService {
                 query.setCollection( collectionName );
 
                 Results entities = em.searchCollection( em.getApplicationRef(), collectionName, query );
-
                 //pages through the query and backs up all results.
                 PagingResultsIterator itr = new PagingResultsIterator( entities );
                 for ( Object e : itr ) {

@@ -41,11 +41,18 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.Service;
+
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
+
 import org.apache.usergrid.batch.service.JobSchedulerService;
+import org.apache.usergrid.persistence.ConnectionRef;
 import org.apache.usergrid.persistence.core.aws.NoAWSCredsRule;
+import org.apache.usergrid.persistence.entities.User;
+import org.apache.usergrid.services.AbstractServiceIT;
+import org.apache.usergrid.services.ServiceAction;
 import org.apache.usergrid.utils.UUIDUtils;
+
 import org.jclouds.ContextBuilder;
 import org.jclouds.blobstore.BlobStore;
 import org.jclouds.blobstore.BlobStoreContext;
@@ -94,16 +101,9 @@ import static org.mockito.Mockito.when;
  *
  *
  */
-public class ExportServiceIT {
+public class ExportServiceIT extends AbstractServiceIT {
 
     private static final Logger logger = LoggerFactory.getLogger( ExportServiceIT.class );
-
-
-    @ClassRule
-    public static final ServiceITSetup setup = new ServiceITSetupImpl(  );
-
-    @Rule
-    public ClearShiroSubject clearShiroSubject = new ClearShiroSubject();
 
     @Rule
     public NewOrgAppAdminRule newOrgAppAdminRule = new NewOrgAppAdminRule( setup );
@@ -122,27 +122,30 @@ public class ExportServiceIT {
 
     private String bucketName;
 
+
     @Before
     public void setup() throws Exception {
-        logger.info("in setup");
+        logger.info( "in setup" );
 
         // start the scheduler after we're all set up
         try {
 
-            JobSchedulerService jobScheduler = ConcurrentProcessSingleton.getInstance().getSpringResource().getBean(JobSchedulerService.class);
-            if (jobScheduler.state() != Service.State.RUNNING) {
+            JobSchedulerService jobScheduler =
+                ConcurrentProcessSingleton.getInstance().getSpringResource().getBean( JobSchedulerService.class );
+            if ( jobScheduler.state() != Service.State.RUNNING ) {
                 jobScheduler.startAsync();
                 jobScheduler.awaitRunning();
             }
-        } catch ( Exception e ) {
-            logger.warn("Ignoring error starting jobScheduler, already started?", e);
+        }
+        catch ( Exception e ) {
+            logger.warn( "Ignoring error starting jobScheduler, already started?", e );
         }
 
         adminUser = newOrgAppAdminRule.getAdminInfo();
         organization = newOrgAppAdminRule.getOrganizationInfo();
         applicationId = newOrgAppAdminRule.getApplicationInfo().getId();
 
-        setup.getEntityIndex().refresh(applicationId);
+        setup.getEntityIndex().refresh( applicationId );
     }
 
 
@@ -150,17 +153,15 @@ public class ExportServiceIT {
     public void before() {
 
         boolean configured =
-            !StringUtils.isEmpty(System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR))
-                && !StringUtils.isEmpty(System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR))
-                && !StringUtils.isEmpty(System.getProperty("bucket_location"));
+            !StringUtils.isEmpty( System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR ) ) && !StringUtils
+                .isEmpty( System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR ) ) && !StringUtils
+                .isEmpty( System.getProperty( "bucket_location" ) );
 
         if ( !configured ) {
-            logger.warn("Skipping test because {}, {} and bucketName not " +
-                    "specified as system properties, e.g. in your Maven settings.xml file.",
-                new Object[] {
-                    SDKGlobalConfiguration.SECRET_KEY_ENV_VAR,
-                    SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR
-                });
+            logger.warn( "Skipping test because {}, {} and bucketName not "
+                    + "specified as system properties, e.g. in your Maven settings.xml file.", new Object[] {
+                    SDKGlobalConfiguration.SECRET_KEY_ENV_VAR, SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR
+                } );
         }
 
         Assume.assumeTrue( configured );
@@ -169,18 +170,19 @@ public class ExportServiceIT {
         organization = newOrgAppAdminRule.getOrganizationInfo();
         applicationId = newOrgAppAdminRule.getApplicationInfo().getId();
         bucketPrefix = System.getProperty( "bucket_location" );
-        bucketName = bucketPrefix + RandomStringUtils.randomAlphabetic( 10 ).toLowerCase(); //.randomAlphanumeric(10).toLowerCase();
+        bucketName = bucketPrefix + RandomStringUtils.randomAlphabetic( 10 )
+                                                     .toLowerCase(); //.randomAlphanumeric(10).toLowerCase();
         //bucketName =  System.getProperty( "bucket_location" );
 
-        AWSCredentials credentials = new BasicAWSCredentials(
-            System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR ),
-            System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR ));
+        AWSCredentials credentials =
+            new BasicAWSCredentials( System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR ),
+                System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR ) );
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol( Protocol.HTTP );
 
-        s3Client = new AmazonS3Client(credentials, clientConfig);
-
+        s3Client = new AmazonS3Client( credentials, clientConfig );
     }
+
 
     //Deletes the files inside the bucket that was used for testing and then deletes the bucket.
     @After
@@ -189,11 +191,12 @@ public class ExportServiceIT {
             //should probably refactor bucketname to be passed in, but then again for a test we'd only use one.
             Set<String> objectsInBucket = returnObjectListsFromBucket();
 
-            for(String objectInBucket: objectsInBucket) {
-                DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest( bucketName, objectInBucket);
+            for ( String objectInBucket : objectsInBucket ) {
+                DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest( bucketName, objectInBucket );
                 s3Client.deleteObject( deleteObjectRequest );
             }
-        } catch (MultiObjectDeleteException e) {
+        }
+        catch ( MultiObjectDeleteException e ) {
             // Process exception.
             throw e;
         }
@@ -202,7 +205,7 @@ public class ExportServiceIT {
 
 
     //Tests to make sure we can call the job with mock data and it runs.
-    @Ignore("Connections won't save when run with maven, but on local builds it will.")
+    @Ignore( "Connections won't save when run with maven, but on local builds it will." )
     public void testConnectionsOnCollectionExport() throws Exception {
 
         File f = null;
@@ -217,12 +220,12 @@ public class ExportServiceIT {
         }
         f.deleteOnExit();
 
-        S3Export s3Export = new MockS3ExportImpl("testFileConnections.json" );
+        S3Export s3Export = new MockS3ExportImpl( "testFileConnections.json" );
 
         ExportService exportService = setup.getExportService();
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         payload.put( "organizationId", organization.getUuid() );
         payload.put( "applicationId", applicationId );
@@ -244,38 +247,36 @@ public class ExportServiceIT {
         //creates connections
         em.createConnection( em.get( new SimpleEntityRef( "user", entity[0].getUuid() ) ), "Vibrations",
             em.get( new SimpleEntityRef( "user", entity[1].getUuid() ) ) );
-        em.createConnection(
-                em.get( new SimpleEntityRef( "user", entity[1].getUuid()) ), "Vibrations",
-                em.get( new SimpleEntityRef( "user", entity[0].getUuid()) ) );
+        em.createConnection( em.get( new SimpleEntityRef( "user", entity[1].getUuid() ) ), "Vibrations",
+            em.get( new SimpleEntityRef( "user", entity[0].getUuid() ) ) );
 
         UUID exportUUID = exportService.schedule( payload );
 
-        TypeReference<HashMap<String,Object>> typeRef
-            = new TypeReference<HashMap<String,Object>>() {};
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         ObjectMapper mapper = new ObjectMapper();
-        HashMap<String,Object> jsonMap = mapper.readValue(new FileReader( f ), typeRef);
+        HashMap<String, Object> jsonMap = mapper.readValue( new FileReader( f ), typeRef );
 
-        Map collectionsMap = (Map)jsonMap.get("collections");
-        List usersList = (List)collectionsMap.get("users");
+        Map collectionsMap = ( Map ) jsonMap.get( "collections" );
+        List usersList = ( List ) collectionsMap.get( "users" );
 
         int indexApp = 0;
         for ( indexApp = 0; indexApp < usersList.size(); indexApp++ ) {
-            Map user = (Map)usersList.get( indexApp );
-            Map userProps = (Map)user.get("Metadata");
+            Map user = ( Map ) usersList.get( indexApp );
+            Map userProps = ( Map ) user.get( "Metadata" );
             String uuid = ( String ) userProps.get( "uuid" );
             if ( entity[0].getUuid().toString().equals( uuid ) ) {
                 break;
             }
         }
 
-        assertTrue("Uuid was not found in exported files. ", indexApp < usersList.size());
+        assertTrue( "Uuid was not found in exported files. ", indexApp < usersList.size() );
 
-        Map userMap = (Map)usersList.get( indexApp );
-        Map connectionsMap = (Map)userMap.get("connections");
+        Map userMap = ( Map ) usersList.get( indexApp );
+        Map connectionsMap = ( Map ) userMap.get( "connections" );
         assertNotNull( connectionsMap );
 
-        List vibrationsList = (List)connectionsMap.get( "Vibrations" );
+        List vibrationsList = ( List ) connectionsMap.get( "Vibrations" );
 
         assertNotNull( vibrationsList );
 
@@ -287,6 +288,88 @@ public class ExportServiceIT {
     //Second we need a way to delete the file and bucket out of s3 once data has been verified.
     @Test
     public void testConnectionsOnApplicationExport() throws Exception {
+        //Populate a application with data that contains connections.
+        ExportService exportService = setup.getExportService();
+        
+        ApplicationInfo appMade = setup.getMgmtSvc().getApplicationInfo(
+            app.getOrgName() + "/" + app.getAppName().toLowerCase() );
+        String orgName = setup.getMgmtSvc().getOrganizations().values().iterator().next();
+
+        OrganizationInfo orgMade = setup.getMgmtSvc().getOrganizationByName( orgName );
+
+
+        EntityManager em = setup.getEmf().getEntityManager( appMade.getId() );
+        em.createApplicationCollection( "testConnectionsOnApplicationCol" );
+
+        Entity[] entity;
+        entity = new Entity[2];
+
+        for ( int i = 0; i < 2; i++ ) {
+            app.put( "username", "billybob" + RandomStringUtils.randomAlphabetic( 5 ).toLowerCase() );
+            app.put( "email", "test" + RandomStringUtils.randomAlphabetic( 5 ).toLowerCase() + i + "@anuff.com" );
+
+            entity[i] = app.testRequest( ServiceAction.POST, 1, "users" ).getEntity();
+            app.testRequest( ServiceAction.GET, 1, "users", ( ( User ) entity[i] ).getUsername() );
+        }
+
+        //POST users/conn-user1/manages/user2/conn-user2
+        app.testRequest( ServiceAction.POST, 1, "users", ( ( User ) entity[0] ).getUsername(), "manages", "users",
+            ( ( User ) entity[1] ).getUsername() );
+        app.testRequest( ServiceAction.GET, 1, "users", ( ( User ) entity[0] ).getUsername() );
+
+        //POST users/conn-user1/reports/users/conn-user2
+        app.testRequest( ServiceAction.POST, 1, "users", ( ( User ) entity[1] ).getUsername(), "relates", "users",
+            ( ( User ) entity[0] ).getUsername() );
+        Entity user2 = app.testRequest( ServiceAction.GET, 1, "users", ( ( User ) entity[1] ).getUsername() ).getEntity();
+
+        setup.refreshIndex( appMade.getId() );
+
+        HashMap<String, Object> payload = payloadBuilder( appMade.getName() );
+
+        payload.put( "organizationId", orgMade.getUuid() );
+        payload.put("applicationId",appMade.getId());
+
+        //this kicks off the actual export with a unique bucket and filename.
+        UUID exportUUID = exportService.schedule( payload );
+        assertNotNull( exportUUID );
+
+        //Anything around two seconds isn't enough for s3 so I bumped it up to 4 seconds to be safe.
+        Thread.sleep( 4000 );
+
+        logger.info( "Downloading an object" );
+
+        Set<String> s3ObjectList = returnObjectListsFromBucket();
+        assertNotEquals( 0, s3ObjectList.size() );
+
+
+        for ( String s3ObjectKey : s3ObjectList ) {
+
+            TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
+
+            S3ObjectInputStream s3ObjectInputStream = s3Client.getObject( bucketName, s3ObjectKey ).getObjectContent();
+
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> exportJsonEntitiesMap = mapper.readValue( s3ObjectInputStream, typeRef );
+
+            assertNotNull( exportJsonEntitiesMap );
+
+            Map collectionsMap = ( Map ) exportJsonEntitiesMap.get( "collections" );
+            String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+            List collection = ( List ) collectionsMap.get( "users" );
+
+            for ( Object o : collection ) {
+                Map entityMap = ( Map ) o;
+                Map metadataMap = ( Map ) entityMap.get( "connections" );
+                assertNotEquals( "Connections weren't saved in the export process.", 0, metadataMap.size() );
+                //assertTrue( "derp doesn't contain bacon? What??", entityName.equals( "bacon" ) );
+            }
+        }
+    }
+
+
+    //Second we need a way to delete the file and bucket out of s3 once data has been verified.
+    @Test
+    public void testApplicationExport() throws Exception {
         //Populate a application with data that contains connections.
         ExportService exportService = setup.getExportService();
 
@@ -321,8 +404,8 @@ public class ExportServiceIT {
         UUID exportUUID = exportService.schedule( payload );
         assertNotNull( exportUUID );
 
-        //Anything around two seconds isn't enough for s3 so I bumped it up to 4 seconds to be safe.
-        Thread.sleep( 4000 );
+        //Anything around two seconds isn't enough for s3 so I bumped it up to 5 seconds to be safe.
+        Thread.sleep( 5000 );
 
         logger.info( "Downloading an object" );
 
@@ -352,81 +435,12 @@ public class ExportServiceIT {
                 assertTrue( "derp doesn't contain bacon? What??", entityName.equals( "bacon" ) );
             }
         }
-    }
-
-        //Second we need a way to delete the file and bucket out of s3 once data has been verified.
-        @Test
-        public void testApplicationExport() throws Exception {
-            //Populate a application with data that contains connections.
-            ExportService exportService = setup.getExportService();
-
-            String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-            HashMap<String, Object> payload = payloadBuilder(appName);
-
-            OrganizationInfo orgMade = null;
-            ApplicationInfo appMade = null;
-            for ( int i = 0; i < 5; i++ ) {
-                orgMade = setup.getMgmtSvc().createOrganization( "minorboss" + i, adminUser, true );
-                for ( int j = 0; j < 5; j++ ) {
-                    appMade = setup.getMgmtSvc().createApplication( orgMade.getUuid(), "superapp" + j );
-
-                    EntityManager customMaker = setup.getEmf().getEntityManager( appMade.getId() );
-                    customMaker.createApplicationCollection( "superappCol" + j );
-                    //intialize user object to be posted
-                    Map<String, Object> entityLevelProperties = null;
-                    Entity[] entNotCopied;
-                    entNotCopied = new Entity[1];
-                    //creates entities
-                    for ( int index = 0; index < 1; index++ ) {
-                        entityLevelProperties = new LinkedHashMap<String, Object>();
-                        entityLevelProperties.put( "derp", "bacon" );
-                        entNotCopied[index] = customMaker.create( "superappCol" + j, entityLevelProperties );
-                    }
-                }
-            }
-
-            payload.put( "organizationId", orgMade.getUuid() );
-
-            //this kicks off the actual export with a unique bucket and filename.
-            UUID exportUUID = exportService.schedule( payload );
-            assertNotNull( exportUUID );
-
-            //Anything around two seconds isn't enough for s3 so I bumped it up to 5 seconds to be safe.
-            Thread.sleep( 5000 );
-
-            logger.info( "Downloading an object" );
-
-            Set<String> s3ObjectList = returnObjectListsFromBucket();
-            assertNotEquals( 0,s3ObjectList.size() );
-
-
-            for(String s3ObjectKey: s3ObjectList) {
-
-                TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
-
-                S3ObjectInputStream s3ObjectInputStream = s3Client.getObject( bucketName, s3ObjectKey ).getObjectContent();
-
-                ObjectMapper mapper = new ObjectMapper();
-                Map<String, Object> exportJsonEntitiesMap = mapper.readValue( s3ObjectInputStream, typeRef );
-
-                assertNotNull( exportJsonEntitiesMap );
-
-                Map collectionsMap = ( Map ) exportJsonEntitiesMap.get( "collections" );
-                String collectionName = ( String ) collectionsMap.keySet().iterator().next();
-                List collection = ( List ) collectionsMap.get( collectionName );
-
-                for ( Object o : collection ) {
-                    Map entityMap = ( Map ) o;
-                    Map metadataMap = ( Map ) entityMap.get( "Metadata" );
-                    String entityName = ( String ) metadataMap.get( "derp" );
-                    assertTrue( "derp doesn't contain bacon? What??", entityName.equals( "bacon" ) );
-                }
-            }
 
         //do what you did below as that is how they are stored. Look at the bucket and make sure its randomized.
 
         //verify that all objects are still there
     }
+
 
     @Test //Connections won't save when run with maven, but on local builds it will.
     public void testConnectionsOnApplicationEndpoint() throws Exception {
@@ -469,38 +483,38 @@ public class ExportServiceIT {
 
             entity[i] = em.create( "users", userProperties );
         }
-        setup.getEntityIndex().refresh( applicationId );
         //creates connections
         em.createConnection( em.get( new SimpleEntityRef( "user", entity[0].getUuid() ) ), "Vibrations",
             em.get( new SimpleEntityRef( "user", entity[1].getUuid() ) ) );
         em.createConnection( em.get( new SimpleEntityRef( "user", entity[1].getUuid() ) ), "Vibrations",
             em.get( new SimpleEntityRef( "user", entity[0].getUuid() ) ) );
 
+        setup.getEntityIndex().refresh( applicationId );
+
         Thread.sleep( 1000 );
 
         UUID exportUUID = exportService.schedule( payload );
 
         //create and initialize jobData returned in JobExecution.
-        JobData jobData = jobDataCreator(payload,exportUUID,s3Export);
+        JobData jobData = jobDataCreator( payload, exportUUID, s3Export );
 
         JobExecution jobExecution = mock( JobExecution.class );
         when( jobExecution.getJobData() ).thenReturn( jobData );
 
         exportService.doExport( jobExecution );
 
-        TypeReference<HashMap<String,Object>> typeRef
-            = new TypeReference<HashMap<String,Object>>() {};
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         ObjectMapper mapper = new ObjectMapper();
-        HashMap<String,Object> jsonMap = mapper.readValue(new FileReader( f ), typeRef);
+        HashMap<String, Object> jsonMap = mapper.readValue( new FileReader( f ), typeRef );
 
-        Map collectionsMap = (Map)jsonMap.get("collections");
-        List usersList = (List)collectionsMap.get("users");
+        Map collectionsMap = ( Map ) jsonMap.get( "collections" );
+        List usersList = ( List ) collectionsMap.get( "users" );
 
         int indexApp = 0;
         for ( indexApp = 0; indexApp < usersList.size(); indexApp++ ) {
-            Map user = (Map)usersList.get( indexApp );
-            Map userProps = (Map)user.get("Metadata");
+            Map user = ( Map ) usersList.get( indexApp );
+            Map userProps = ( Map ) user.get( "Metadata" );
             String uuid = ( String ) userProps.get( "uuid" );
             if ( entity[0].getUuid().toString().equals( uuid ) ) {
                 break;
@@ -509,14 +523,15 @@ public class ExportServiceIT {
 
         assertTrue( "Uuid was not found in exported files. ", indexApp < usersList.size() );
 
-        Map userMap = (Map)usersList.get( indexApp );
-        Map connectionsMap = (Map)userMap.get("connections");
+        Map userMap = ( Map ) usersList.get( indexApp );
+        Map connectionsMap = ( Map ) userMap.get( "connections" );
         assertNotNull( connectionsMap );
 
-        List vibrationsList = (List)connectionsMap.get( "Vibrations" );
+        List vibrationsList = ( List ) connectionsMap.get( "Vibrations" );
 
         assertNotNull( vibrationsList );
     }
+
 
     @Test
     public void testExportOneOrgCollectionEndpoint() throws Exception {
@@ -534,19 +549,15 @@ public class ExportServiceIT {
 
 
         //create another org to ensure we don't export it
-        newOrgAppAdminRule.createOwnerAndOrganization(
-            "noExport"+newUUIDString(),
-            "junkUserName"+newUUIDString(),
-            "junkRealName"+newUUIDString(),
-            newUUIDString()+"ugExport@usergrid.com",
-            "123456789" );
+        newOrgAppAdminRule.createOwnerAndOrganization( "noExport" + newUUIDString(), "junkUserName" + newUUIDString(),
+            "junkRealName" + newUUIDString(), newUUIDString() + "ugExport@usergrid.com", "123456789" );
 
-        S3Export s3Export = new MockS3ExportImpl("exportOneOrg.json");
-      //  s3Export.setFilename( "exportOneOrg.json" );
+        S3Export s3Export = new MockS3ExportImpl( "exportOneOrg.json" );
+        //  s3Export.setFilename( "exportOneOrg.json" );
         ExportService exportService = setup.getExportService();
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         payload.put( "organizationId", organization.getUuid() );
         payload.put( "applicationId", applicationId );
@@ -554,7 +565,7 @@ public class ExportServiceIT {
 
         UUID exportUUID = exportService.schedule( payload );
 
-        JobData jobData = jobDataCreator(payload,exportUUID,s3Export);
+        JobData jobData = jobDataCreator( payload, exportUUID, s3Export );
 
 
         JobExecution jobExecution = mock( JobExecution.class );
@@ -562,20 +573,19 @@ public class ExportServiceIT {
 
         exportService.doExport( jobExecution );
 
-        TypeReference<HashMap<String,Object>> typeRef
-            = new TypeReference<HashMap<String,Object>>() {};
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         ObjectMapper mapper = new ObjectMapper();
-        Map<String,Object> jsonMap = mapper.readValue(new FileReader( f ), typeRef);
+        Map<String, Object> jsonMap = mapper.readValue( new FileReader( f ), typeRef );
 
-        Map collectionsMap = (Map)jsonMap.get("collections");
-        String collectionName = (String)collectionsMap.keySet().iterator().next();
-        List collection = (List)collectionsMap.get(collectionName);
+        Map collectionsMap = ( Map ) jsonMap.get( "collections" );
+        String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+        List collection = ( List ) collectionsMap.get( collectionName );
 
         for ( Object o : collection ) {
-            Map entityMap = (Map)o;
-            Map metadataMap = (Map)entityMap.get("Metadata");
-            String entityName = (String)metadataMap.get("name");
+            Map entityMap = ( Map ) o;
+            Map metadataMap = ( Map ) entityMap.get( "Metadata" );
+            String entityName = ( String ) metadataMap.get( "name" );
             assertFalse( "junkRealName".equals( entityName ) );
         }
     }
@@ -602,9 +612,8 @@ public class ExportServiceIT {
         f.deleteOnExit();
 
 
-        Entity appInfo = setup.getEmf().createApplicationV2(orgName, appName);
+        Entity appInfo = setup.getEmf().createApplicationV2( orgName, appName );
         UUID applicationId = appInfo.getUuid();
-
 
 
         EntityManager em = setup.getEmf().getEntityManager( applicationId );
@@ -620,38 +629,37 @@ public class ExportServiceIT {
             entity[i] = em.create( "user", userProperties );
         }
 
-        S3Export s3Export = new MockS3ExportImpl("exportOneApp.json");
+        S3Export s3Export = new MockS3ExportImpl( "exportOneApp.json" );
         //s3Export.setFilename( "exportOneApp.json" );
         ExportService exportService = setup.getExportService();
 
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         payload.put( "organizationId", organization.getUuid() );
         payload.put( "applicationId", applicationId );
 
         UUID exportUUID = exportService.schedule( payload );
 
-        JobData jobData = jobDataCreator(payload,exportUUID,s3Export);
+        JobData jobData = jobDataCreator( payload, exportUUID, s3Export );
 
         JobExecution jobExecution = mock( JobExecution.class );
         when( jobExecution.getJobData() ).thenReturn( jobData );
 
         exportService.doExport( jobExecution );
 
-        TypeReference<HashMap<String,Object>> typeRef
-            = new TypeReference<HashMap<String,Object>>() {};
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         ObjectMapper mapper = new ObjectMapper();
-        Map<String,Object> jsonMap = mapper.readValue(new FileReader( f ), typeRef);
+        Map<String, Object> jsonMap = mapper.readValue( new FileReader( f ), typeRef );
 
-        Map collectionsMap = (Map)jsonMap.get("collections");
-        String collectionName = (String)collectionsMap.keySet().iterator().next();
-        List collection = (List)collectionsMap.get(collectionName);
+        Map collectionsMap = ( Map ) jsonMap.get( "collections" );
+        String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+        List collection = ( List ) collectionsMap.get( collectionName );
 
         for ( Object o : collection ) {
-            Map entityMap = (Map)o;
-            Map metadataMap = (Map)entityMap.get("Metadata");
-            String entityName = (String)metadataMap.get("name");
+            Map entityMap = ( Map ) o;
+            Map metadataMap = ( Map ) entityMap.get( "Metadata" );
+            String entityName = ( String ) metadataMap.get( "name" );
             assertFalse( "junkRealName".equals( entityName ) );
         }
     }
@@ -685,11 +693,11 @@ public class ExportServiceIT {
             entity[i] = em.create( "users", userProperties );
         }
 
-        S3Export s3Export = new MockS3ExportImpl("exportOneAppWQuery.json" );
+        S3Export s3Export = new MockS3ExportImpl( "exportOneAppWQuery.json" );
         ExportService exportService = setup.getExportService();
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         payload.put( "query", "select * where username = 'junkRealName'" );
         payload.put( "organizationId", organization.getUuid() );
@@ -697,29 +705,28 @@ public class ExportServiceIT {
 
         UUID exportUUID = exportService.schedule( payload );
 
-        JobData jobData = jobDataCreator(payload,exportUUID,s3Export);
+        JobData jobData = jobDataCreator( payload, exportUUID, s3Export );
 
         JobExecution jobExecution = mock( JobExecution.class );
         when( jobExecution.getJobData() ).thenReturn( jobData );
 
-       setup.getEntityIndex().refresh( applicationId );
+        setup.getEntityIndex().refresh( applicationId );
 
         exportService.doExport( jobExecution );
 
-        TypeReference<HashMap<String,Object>> typeRef
-            = new TypeReference<HashMap<String,Object>>() {};
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         ObjectMapper mapper = new ObjectMapper();
-        Map<String,Object> jsonMap = mapper.readValue(new FileReader( f ), typeRef);
+        Map<String, Object> jsonMap = mapper.readValue( new FileReader( f ), typeRef );
 
-        Map collectionsMap = (Map)jsonMap.get("collections");
-        String collectionName = (String)collectionsMap.keySet().iterator().next();
-        List collection = (List)collectionsMap.get( collectionName );
+        Map collectionsMap = ( Map ) jsonMap.get( "collections" );
+        String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+        List collection = ( List ) collectionsMap.get( collectionName );
 
         for ( Object o : collection ) {
-            Map entityMap = (Map)o;
-            Map metadataMap = (Map)entityMap.get("Metadata");
-            String entityName = (String)metadataMap.get("name");
+            Map entityMap = ( Map ) o;
+            Map metadataMap = ( Map ) entityMap.get( "Metadata" );
+            String entityName = ( String ) metadataMap.get( "name" );
             assertFalse( "junkRealName".equals( entityName ) );
         }
     }
@@ -756,11 +763,11 @@ public class ExportServiceIT {
             entity[i] = em.create( "qtsMagics", userProperties );
         }
 
-        S3Export s3Export = new MockS3ExportImpl("exportOneCollection.json" );
+        S3Export s3Export = new MockS3ExportImpl( "exportOneCollection.json" );
         ExportService exportService = setup.getExportService();
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         payload.put( "organizationId", organization.getUuid() );
         payload.put( "applicationId", applicationId );
@@ -768,26 +775,25 @@ public class ExportServiceIT {
 
         UUID exportUUID = exportService.schedule( payload );
 
-        JobData jobData = jobDataCreator(payload,exportUUID,s3Export);
+        JobData jobData = jobDataCreator( payload, exportUUID, s3Export );
 
         JobExecution jobExecution = mock( JobExecution.class );
         when( jobExecution.getJobData() ).thenReturn( jobData );
 
-        setup.getEntityIndex().refresh(applicationId);
+        setup.getEntityIndex().refresh( applicationId );
 
         exportService.doExport( jobExecution );
 
-        TypeReference<HashMap<String,Object>> typeRef
-            = new TypeReference<HashMap<String,Object>>() {};
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         ObjectMapper mapper = new ObjectMapper();
-        HashMap<String,Object> jsonMap = mapper.readValue(new FileReader( f ), typeRef);
+        HashMap<String, Object> jsonMap = mapper.readValue( new FileReader( f ), typeRef );
 
-        Map collectionsMap = (Map)jsonMap.get("collections");
-        String collectionName = (String)collectionsMap.keySet().iterator().next();
-        List collection = (List)collectionsMap.get( collectionName );
+        Map collectionsMap = ( Map ) jsonMap.get( "collections" );
+        String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+        List collection = ( List ) collectionsMap.get( collectionName );
 
-        assertEquals(entitiesToCreate, collection.size());
+        assertEquals( entitiesToCreate, collection.size() );
     }
 
 
@@ -808,7 +814,7 @@ public class ExportServiceIT {
 
         EntityManager em = setup.getEmf().getEntityManager( applicationId );
         em.createApplicationCollection( "baconators" );
-        setup.getEntityIndex().refresh(applicationId);
+        setup.getEntityIndex().refresh( applicationId );
 
         //initialize user object to be posted
         Map<String, Object> userProperties = null;
@@ -823,11 +829,11 @@ public class ExportServiceIT {
             entity[i] = em.create( "baconators", userProperties );
         }
 
-        S3Export s3Export = new MockS3ExportImpl("exportOneCollectionWQuery.json");
+        S3Export s3Export = new MockS3ExportImpl( "exportOneCollectionWQuery.json" );
         ExportService exportService = setup.getExportService();
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         payload.put( "query", "select * where username contains 'billybob0'" );
         payload.put( "organizationId", organization.getUuid() );
@@ -841,26 +847,25 @@ public class ExportServiceIT {
         JobExecution jobExecution = mock( JobExecution.class );
         when( jobExecution.getJobData() ).thenReturn( jobData );
 
-        setup.getEntityIndex().refresh(applicationId);
+        setup.getEntityIndex().refresh( applicationId );
 
         exportService.doExport( jobExecution );
 
-        TypeReference<HashMap<String,Object>> typeRef
-            = new TypeReference<HashMap<String,Object>>() {};
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         ObjectMapper mapper = new ObjectMapper();
-        Map<String,Object> jsonMap = mapper.readValue(new FileReader( f ), typeRef);
+        Map<String, Object> jsonMap = mapper.readValue( new FileReader( f ), typeRef );
 
-        Map collectionsMap = (Map)jsonMap.get("collections");
-        String collectionName = (String)collectionsMap.keySet().iterator().next();
-        List collectionList = (List)collectionsMap.get( collectionName );
+        Map collectionsMap = ( Map ) jsonMap.get( "collections" );
+        String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+        List collectionList = ( List ) collectionsMap.get( collectionName );
 
-        assertEquals(1, collectionList.size());
+        assertEquals( 1, collectionList.size() );
     }
 
 
     @Test
-    @Ignore("this is a meaningless test because our export format does not support export of organizations")
+    @Ignore( "this is a meaningless test because our export format does not support export of organizations" )
     public void testExportOneOrganization() throws Exception {
 
         // create a bunch of organizations, each with applications and collections of entities
@@ -875,25 +880,25 @@ public class ExportServiceIT {
         for ( int orgIndex = 0; orgIndex < maxOrgs; orgIndex++ ) {
 
 
-            String orgName = "org_" + RandomStringUtils.randomAlphanumeric(10);
+            String orgName = "org_" + RandomStringUtils.randomAlphanumeric( 10 );
             OrganizationInfo orgMade = setup.getMgmtSvc().createOrganization( orgName, adminUser, true );
             orgsMade.add( orgMade );
-            logger.debug("Created org {}", orgName);
+            logger.debug( "Created org {}", orgName );
 
             for ( int appIndex = 0; appIndex < maxApps; appIndex++ ) {
 
-                String appName =  "app_" + RandomStringUtils.randomAlphanumeric(10);
+                String appName = "app_" + RandomStringUtils.randomAlphanumeric( 10 );
                 ApplicationInfo appMade = setup.getMgmtSvc().createApplication( orgMade.getUuid(), appName );
                 appsMade.add( appMade );
-                logger.debug("Created app {}", appName);
+                logger.debug( "Created app {}", appName );
 
-                for (int entityIndex = 0; entityIndex < maxEntities; entityIndex++) {
+                for ( int entityIndex = 0; entityIndex < maxEntities; entityIndex++ ) {
 
                     EntityManager appEm = setup.getEmf().getEntityManager( appMade.getId() );
                     appEm.create( appName + "_type", new HashMap<String, Object>() {{
-                        put("property1", "value1");
-                        put("property2", "value2");
-                    }});
+                        put( "property1", "value1" );
+                        put( "property2", "value2" );
+                    }} );
                 }
             }
         }
@@ -903,9 +908,9 @@ public class ExportServiceIT {
         String exportFileName = "exportOneOrganization.json";
         S3Export s3Export = new MockS3ExportImpl( exportFileName );
 
-        HashMap<String, Object> payload = payloadBuilder(appsMade.get(0).getName());
-        payload.put("organizationId", orgsMade.get(0).getUuid() );
-        payload.put( "applicationId", appsMade.get(0).getId() );
+        HashMap<String, Object> payload = payloadBuilder( appsMade.get( 0 ).getName() );
+        payload.put( "organizationId", orgsMade.get( 0 ).getUuid() );
+        payload.put( "applicationId", appsMade.get( 0 ).getId() );
 
         ExportService exportService = setup.getExportService();
         UUID exportUUID = exportService.schedule( payload );
@@ -921,14 +926,13 @@ public class ExportServiceIT {
         File exportedFile = new File( exportFileName );
         exportedFile.deleteOnExit();
 
-        TypeReference<HashMap<String,Object>> typeRef
-            = new TypeReference<HashMap<String,Object>>() {};
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         ObjectMapper mapper = new ObjectMapper();
-        Map<String,Object> jsonMap = mapper.readValue(new FileReader( exportedFile ), typeRef);
-        Map collectionsMap = (Map)jsonMap.get( "collections" );
+        Map<String, Object> jsonMap = mapper.readValue( new FileReader( exportedFile ), typeRef );
+        Map collectionsMap = ( Map ) jsonMap.get( "collections" );
 
-        List collectionList = (List)collectionsMap.get("users");
+        List collectionList = ( List ) collectionsMap.get( "users" );
 
         assertEquals( 3, collectionList.size() );
     }
@@ -938,7 +942,7 @@ public class ExportServiceIT {
     public void testExportDoJob() throws Exception {
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         payload.put( "organizationId", organization.getUuid() );
         payload.put( "applicationId", applicationId );
@@ -962,11 +966,12 @@ public class ExportServiceIT {
             job.doJob( jobExecution );
         }
         catch ( Exception e ) {
-            logger.error("Error doing job", e);
+            logger.error( "Error doing job", e );
             assert ( false );
         }
         assert ( true );
     }
+
 
     //tests that with empty job data, the export still runs.
     @Test
@@ -1005,7 +1010,7 @@ public class ExportServiceIT {
 
         ExportJob job = new ExportJob();
         S3Export s3Export = mock( S3Export.class );
-       // setup.getExportService().setS3Export( s3Export );
+        // setup.getExportService().setS3Export( s3Export );
         job.setExportService( setup.getExportService() );
         try {
             job.doJob( jobExecution );
@@ -1021,12 +1026,12 @@ public class ExportServiceIT {
     @Ignore // TODO: fix this test...
     public void testIntegration100EntitiesOn() throws Exception {
 
-        logger.debug("testIntegration100EntitiesOn(): starting...");
+        logger.debug( "testIntegration100EntitiesOn(): starting..." );
 
         ExportService exportService = setup.getExportService();
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         payload.put( "organizationId", organization.getUuid() );
         payload.put( "applicationId", applicationId );
@@ -1039,7 +1044,7 @@ public class ExportServiceIT {
             EntityManager appEm = setup.getEmf().getEntityManager( appMade.getId() );
 
             String collName = "superappCol" + i;
-            appEm.createApplicationCollection(collName);
+            appEm.createApplicationCollection( collName );
 
             Map<String, Object> entityLevelProperties = null;
             Entity[] entNotCopied;
@@ -1060,7 +1065,7 @@ public class ExportServiceIT {
         int maxRetries = 100;
         int retries = 0;
         while ( !exportService.getState( exportUUID ).equals( "FINISHED" ) && retries++ < maxRetries ) {
-            Thread.sleep(100);
+            Thread.sleep( 100 );
         }
 
         String accessId = System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR );
@@ -1074,37 +1079,35 @@ public class ExportServiceIT {
         BlobStore blobStore = null;
         try {
 
-            final Iterable<? extends Module> MODULES = ImmutableSet.of(
-                new JavaUrlHttpCommandExecutorServiceModule(),
-                new Log4JLoggingModule(),
-                new NettyPayloadModule());
+            final Iterable<? extends Module> MODULES = ImmutableSet
+                .of( new JavaUrlHttpCommandExecutorServiceModule(), new Log4JLoggingModule(),
+                    new NettyPayloadModule() );
 
-            BlobStoreContext context = ContextBuilder.newBuilder("s3")
-                .credentials(accessId, secretKey)
-                .modules(MODULES)
-                .overrides(overrides)
-                .buildView(BlobStoreContext.class);
+            BlobStoreContext context =
+                ContextBuilder.newBuilder( "s3" ).credentials( accessId, secretKey ).modules( MODULES )
+                              .overrides( overrides ).buildView( BlobStoreContext.class );
 
-            String expectedFileName = ((ExportServiceImpl) exportService)
-                .prepareOutputFileName(organization.getName(), "applications");
+            String expectedFileName =
+                ( ( ExportServiceImpl ) exportService ).prepareOutputFileName( organization.getName(), "applications" );
 
             blobStore = context.getBlobStore();
-            if (!blobStore.blobExists(bucketName, expectedFileName)) {
-                blobStore.deleteContainer(bucketName);
-                Assert.fail("Blob does not exist: " + expectedFileName);
+            if ( !blobStore.blobExists( bucketName, expectedFileName ) ) {
+                blobStore.deleteContainer( bucketName );
+                Assert.fail( "Blob does not exist: " + expectedFileName );
             }
-            Blob bo = blobStore.getBlob(bucketName, expectedFileName);
+            Blob bo = blobStore.getBlob( bucketName, expectedFileName );
 
-            Long numOfFiles = blobStore.countBlobs(bucketName);
+            Long numOfFiles = blobStore.countBlobs( bucketName );
             Long numWeWant = 1L;
-            blobStore.deleteContainer(bucketName);
-            assertEquals(numOfFiles, numWeWant);
-            assertNotNull(bo);
-
-        } finally {
-            blobStore.deleteContainer(bucketName);
+            blobStore.deleteContainer( bucketName );
+            assertEquals( numOfFiles, numWeWant );
+            assertNotNull( bo );
+        }
+        finally {
+            blobStore.deleteContainer( bucketName );
         }
     }
+
 
     //@Ignore("Why is this ignored?")
     @Test
@@ -1114,7 +1117,7 @@ public class ExportServiceIT {
         ExportService exportService = setup.getExportService();
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         OrganizationInfo orgMade = null;
         ApplicationInfo appMade = null;
@@ -1153,52 +1156,52 @@ public class ExportServiceIT {
         overrides.setProperty( "s3" + ".identity", accessId );
         overrides.setProperty( "s3" + ".credential", secretKey );
 
-//        BlobStore blobStore = null;
-//
-//        try {
-//            final Iterable<? extends Module> MODULES = ImmutableSet.of(
-//                new JavaUrlHttpCommandExecutorServiceModule(),
-//                new Log4JLoggingModule(),
-//                new NettyPayloadModule() );
-//
-////            BlobStoreContext context = ContextBuilder.newBuilder( "s3" )
-////                .credentials(accessId, secretKey )
-////                .modules(MODULES )
-////                .overrides(overrides )
-////                .buildView(BlobStoreContext.class );
-//
-//            BlobStoreContext context = ContextBuilder.newBuilder( "aws-s3" )
-//                                                     .credentials( accessId, secretKey )
-//                                                     .modules( MODULES )
-//                                                     .buildView( BlobStoreContext.class );
-//
-//            blobStore = context.getBlobStore();
-//
-//            //Grab Number of files
-//            Long numOfFiles = blobStore.countBlobs( bucketName );
-//
-//            String expectedFileName = ((ExportServiceImpl)exportService)
-//                .prepareOutputFileName( organization.getName(), "applications" );
-//
-//            //delete container containing said files
-//            Blob bo = blobStore.getBlob( bucketName, expectedFileName );
-//            Long numWeWant = 5L;
-//            //blobStore.deleteContainer( bucketName );
-//
-//            //asserts that the correct number of files was transferred over
-//            assertEquals( numWeWant, numOfFiles );
-//
-//        }
-//        catch(Exception e){
-//            fail( e.getMessage() );
-//        }
-//        finally {
-//            //blobStore.deleteContainer( bucketName );
-//        }
+        //        BlobStore blobStore = null;
+        //
+        //        try {
+        //            final Iterable<? extends Module> MODULES = ImmutableSet.of(
+        //                new JavaUrlHttpCommandExecutorServiceModule(),
+        //                new Log4JLoggingModule(),
+        //                new NettyPayloadModule() );
+        //
+        ////            BlobStoreContext context = ContextBuilder.newBuilder( "s3" )
+        ////                .credentials(accessId, secretKey )
+        ////                .modules(MODULES )
+        ////                .overrides(overrides )
+        ////                .buildView(BlobStoreContext.class );
+        //
+        //            BlobStoreContext context = ContextBuilder.newBuilder( "aws-s3" )
+        //                                                     .credentials( accessId, secretKey )
+        //                                                     .modules( MODULES )
+        //                                                     .buildView( BlobStoreContext.class );
+        //
+        //            blobStore = context.getBlobStore();
+        //
+        //            //Grab Number of files
+        //            Long numOfFiles = blobStore.countBlobs( bucketName );
+        //
+        //            String expectedFileName = ((ExportServiceImpl)exportService)
+        //                .prepareOutputFileName( organization.getName(), "applications" );
+        //
+        //            //delete container containing said files
+        //            Blob bo = blobStore.getBlob( bucketName, expectedFileName );
+        //            Long numWeWant = 5L;
+        //            //blobStore.deleteContainer( bucketName );
+        //
+        //            //asserts that the correct number of files was transferred over
+        //            assertEquals( numWeWant, numOfFiles );
+        //
+        //        }
+        //        catch(Exception e){
+        //            fail( e.getMessage() );
+        //        }
+        //        finally {
+        //            //blobStore.deleteContainer( bucketName );
+        //        }
     }
 
 
-    @Ignore("Why is this ignored")
+    @Ignore( "Why is this ignored" )
     @Test
     public void testIntegration100EntitiesOnOneOrg() throws Exception {
 
@@ -1206,7 +1209,7 @@ public class ExportServiceIT {
         ExportService exportService = setup.getExportService();
 
         String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder(appName);
+        HashMap<String, Object> payload = payloadBuilder( appName );
 
         payload.put( "organizationId", organization.getUuid() );
         payload.put( "applicationId", applicationId );
@@ -1250,7 +1253,8 @@ public class ExportServiceIT {
 
         UUID exportUUID = exportService.schedule( payload );
 
-        while ( !exportService.getState( exportUUID ).equals( "FINISHED" ) ) {}
+        while ( !exportService.getState( exportUUID ).equals( "FINISHED" ) ) {
+        }
 
         String accessId = System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR );
         String secretKey = System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR );
@@ -1263,17 +1267,16 @@ public class ExportServiceIT {
         BlobStore blobStore = null;
 
         try {
-            final Iterable<? extends Module> MODULES = ImmutableSet.of( new JavaUrlHttpCommandExecutorServiceModule(),
-                new Log4JLoggingModule(), new NettyPayloadModule() );
+            final Iterable<? extends Module> MODULES = ImmutableSet
+                .of( new JavaUrlHttpCommandExecutorServiceModule(), new Log4JLoggingModule(),
+                    new NettyPayloadModule() );
 
-            BlobStoreContext context = ContextBuilder.newBuilder( "s3" )
-                .credentials( accessId, secretKey )
-                .modules( MODULES )
-                .overrides( overrides )
-                .buildView( BlobStoreContext.class );
+            BlobStoreContext context =
+                ContextBuilder.newBuilder( "s3" ).credentials( accessId, secretKey ).modules( MODULES )
+                              .overrides( overrides ).buildView( BlobStoreContext.class );
 
-            String expectedFileName = ((ExportServiceImpl)exportService)
-                .prepareOutputFileName(organization.getName(), "applications");
+            String expectedFileName =
+                ( ( ExportServiceImpl ) exportService ).prepareOutputFileName( organization.getName(), "applications" );
 
             blobStore = context.getBlobStore();
             if ( !blobStore.blobExists( bucketName, expectedFileName ) ) {
@@ -1293,7 +1296,8 @@ public class ExportServiceIT {
         blobStore.deleteContainer( bucketName );
     }
 
-    public JobData jobDataCreator(HashMap<String, Object> payload,UUID exportUUID, S3Export s3Export) {
+
+    public JobData jobDataCreator( HashMap<String, Object> payload, UUID exportUUID, S3Export s3Export ) {
         JobData jobData = new JobData();
 
         jobData.setProperty( "jobName", "exportJob" );
@@ -1304,16 +1308,15 @@ public class ExportServiceIT {
         return jobData;
     }
 
+
     /*Creates fake payload for testing purposes.*/
     public HashMap<String, Object> payloadBuilder( String orgOrAppName ) {
         HashMap<String, Object> payload = new HashMap<String, Object>();
         Map<String, Object> properties = new HashMap<String, Object>();
         Map<String, Object> storage_info = new HashMap<String, Object>();
-        storage_info.put( "s3_key",
-            System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR ) );
-        storage_info.put( "s3_access_id",
-            System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR ) );
-        storage_info.put( "bucket_location",  bucketName );
+        storage_info.put( "s3_key", System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR ) );
+        storage_info.put( "s3_access_id", System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR ) );
+        storage_info.put( "bucket_location", bucketName );
 
         properties.put( "storage_provider", "s3" );
         properties.put( "storage_info", storage_info );
@@ -1323,17 +1326,16 @@ public class ExportServiceIT {
         return payload;
     }
 
-    public Set<String> returnObjectListsFromBucket(){
-        ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
-            .withBucketName( bucketName );
+
+    public Set<String> returnObjectListsFromBucket() {
+        ListObjectsRequest listObjectsRequest = new ListObjectsRequest().withBucketName( bucketName );
         ObjectListing objectListing;
         S3Object exportedS3Object = null;
         Set<String> bucketObjectNames = new HashSet<>();
 
 
-        objectListing = s3Client.listObjects(listObjectsRequest);
-        for (S3ObjectSummary objectSummary :
-            objectListing.getObjectSummaries()) {
+        objectListing = s3Client.listObjects( listObjectsRequest );
+        for ( S3ObjectSummary objectSummary : objectListing.getObjectSummaries() ) {
             System.out.println( " - " + objectSummary.getKey() + "  " +
                 "(size = " + objectSummary.getSize() +
                 ")" );
