@@ -531,7 +531,7 @@ public class ExportServiceImpl implements ExportService {
 
         JsonGenerator jg = jsonFactory.createJsonGenerator( ephermal, JsonEncoding.UTF8 );
         //jg.setPrettyPrinter( new DefaultPrettyPrinter(  ) );
-        jg.setPrettyPrinter( new MinimalPrettyPrinter( "\n" ) );
+        jg.setPrettyPrinter( new MinimalPrettyPrinter( "" ) );
         jg.setCodec( new ObjectMapper() );
         return jg;
     }
@@ -615,6 +615,7 @@ public class ExportServiceImpl implements ExportService {
                     jg.writeObject( entity );
                     saveCollectionMembers( jg, em, ( String ) config.get( "collectionName" ), entity );
                     jg.writeEndObject();
+                    jg.writeRaw('\n');
                     jg.flush();
 
                 }
@@ -624,7 +625,6 @@ public class ExportServiceImpl implements ExportService {
                 //write out the end collection
                 //jg.writeEndArray();
             }
-            jg.writeRaw('\n');
 
         }
         //jg.writeEndObject();
