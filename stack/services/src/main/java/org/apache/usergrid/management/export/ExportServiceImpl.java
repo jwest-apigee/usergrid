@@ -48,6 +48,7 @@ import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.BiMap;
 
@@ -505,20 +506,13 @@ public class ExportServiceImpl implements ExportService {
         jg.writeFieldName( "connections" );
         jg.writeStartObject();
 
-       // em.getConn
-        //Set<String> connectionTypes = em.getConnectionTypes( entity );
         Set<String> connectionTypes = em.getConnectionsAsSource( entity );
         for ( String connectionType : connectionTypes ) {
 
             jg.writeFieldName( connectionType );
             jg.writeStartArray();
 
-
             Results results = em.getTargetEntities( entity,connectionType, null, Level.IDS );
-            //em.getTarget
-//            Results results = em.getTargetEntities(
-//                new SimpleEntityRef(entity.getType(), entity.getUuid()),
-//                connectionType, null, Level.IDS);
 
             List<ConnectionRef> connections = results.getConnections();
 
@@ -536,7 +530,8 @@ public class ExportServiceImpl implements ExportService {
         //TODO:shouldn't the below be UTF-16?
 
         JsonGenerator jg = jsonFactory.createJsonGenerator( ephermal, JsonEncoding.UTF8 );
-        jg.setPrettyPrinter( new DefaultPrettyPrinter(  ) );
+        //jg.setPrettyPrinter( new DefaultPrettyPrinter(  ) );
+        jg.setPrettyPrinter( new MinimalPrettyPrinter( "\n" ) );
         jg.setCodec( new ObjectMapper() );
         return jg;
     }
@@ -578,8 +573,8 @@ public class ExportServiceImpl implements ExportService {
 
         JsonGenerator jg = getJsonGenerator( ephemeral );
 
-        jg.writeStartObject();
-        jg.writeObjectFieldStart( "collections" );
+       // jg.writeStartObject();
+       // jg.writeObjectFieldStart( "collections" );
 
         for ( String collectionName : metadata.keySet() ) {
 
@@ -590,7 +585,7 @@ public class ExportServiceImpl implements ExportService {
             if ( ( config.get( "collectionName" ) == null ) || collectionName.equalsIgnoreCase((String)config.get( "collectionName" ) ) ) {
 
                 //write out the collection name at the start of the file
-                jg.writeArrayFieldStart( collectionName.toLowerCase() );
+                //jg.writeArrayFieldStart( collectionName.toLowerCase() );
 
                 //Query entity manager for the entities in a collection
                 Query query = null;
@@ -627,11 +622,13 @@ public class ExportServiceImpl implements ExportService {
 
 
                 //write out the end collection
-                jg.writeEndArray();
+                //jg.writeEndArray();
             }
+            jg.writeRaw('\n');
+
         }
-        jg.writeEndObject();
-        jg.writeEndObject();
+        //jg.writeEndObject();
+        //jg.writeEndObject();
         jg.flush();
         jg.close();
 

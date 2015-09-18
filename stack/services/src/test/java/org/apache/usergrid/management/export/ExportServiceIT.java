@@ -185,23 +185,23 @@ public class ExportServiceIT extends AbstractServiceIT {
 
 
     //Deletes the files inside the bucket that was used for testing and then deletes the bucket.
-    @After
-    public void after() {
-        try {
-            //should probably refactor bucketname to be passed in, but then again for a test we'd only use one.
-            Set<String> objectsInBucket = returnObjectListsFromBucket();
-
-            for ( String objectInBucket : objectsInBucket ) {
-                DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest( bucketName, objectInBucket );
-                s3Client.deleteObject( deleteObjectRequest );
-            }
-        }
-        catch ( MultiObjectDeleteException e ) {
-            // Process exception.
-            throw e;
-        }
-        s3Client.deleteBucket( bucketName );
-    }
+//    @After
+//    public void after() {
+//        try {
+//            //should probably refactor bucketname to be passed in, but then again for a test we'd only use one.
+//            Set<String> objectsInBucket = returnObjectListsFromBucket();
+//
+//            for ( String objectInBucket : objectsInBucket ) {
+//                DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest( bucketName, objectInBucket );
+//                s3Client.deleteObject( deleteObjectRequest );
+//            }
+//        }
+//        catch ( MultiObjectDeleteException e ) {
+//            // Process exception.
+//            throw e;
+//        }
+//        s3Client.deleteBucket( bucketName );
+//    }
 
 
     //Tests to make sure we can call the job with mock data and it runs.
@@ -290,7 +290,7 @@ public class ExportServiceIT extends AbstractServiceIT {
     public void testConnectionsOnApplicationExport() throws Exception {
         //Populate a application with data that contains connections.
         ExportService exportService = setup.getExportService();
-        
+
         ApplicationInfo appMade = setup.getMgmtSvc().getApplicationInfo(
             app.getOrgName() + "/" + app.getAppName().toLowerCase() );
         String orgName = setup.getMgmtSvc().getOrganizations().values().iterator().next();
@@ -361,7 +361,6 @@ public class ExportServiceIT extends AbstractServiceIT {
                 Map entityMap = ( Map ) o;
                 Map metadataMap = ( Map ) entityMap.get( "connections" );
                 assertNotEquals( "Connections weren't saved in the export process.", 0, metadataMap.size() );
-                //assertTrue( "derp doesn't contain bacon? What??", entityName.equals( "bacon" ) );
             }
         }
     }
@@ -388,9 +387,9 @@ public class ExportServiceIT extends AbstractServiceIT {
                 //intialize user object to be posted
                 Map<String, Object> entityLevelProperties = null;
                 Entity[] entNotCopied;
-                entNotCopied = new Entity[1];
+                entNotCopied = new Entity[5];
                 //creates entities
-                for ( int index = 0; index < 1; index++ ) {
+                for ( int index = 0; index < 5; index++ ) {
                     entityLevelProperties = new LinkedHashMap<String, Object>();
                     entityLevelProperties.put( "derp", "bacon" );
                     entNotCopied[index] = customMaker.create( "superappCol" + j, entityLevelProperties );
