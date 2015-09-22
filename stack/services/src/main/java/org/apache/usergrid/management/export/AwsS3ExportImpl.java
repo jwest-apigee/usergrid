@@ -81,7 +81,7 @@ public class AwsS3ExportImpl implements S3Export {
     //exportInfo Should probably just be an object class that represents the data
     //refer to the tomb of programming stuff to verify.
     @Override
-    public void copyToS3( final File ephemeral, final Map<String, Object> exportInfo, final String filename ) throws Exception {
+    public void copyToS3( final Map ephemeral, final Map<String, Object> exportInfo, final String filename ) throws Exception {
 
         //Get bucketname, access key, and secret key
         logger.debug( "Getting bucketname, access key, and secret key" );
@@ -114,10 +114,10 @@ public class AwsS3ExportImpl implements S3Export {
         //pretty much copy and paste AwsSdkS3BinaryStore
         //seems like this might be the same step as just writing something so it shouldn't be an issue
 
-        logger.debug( "Creating bucket if not already created" );
 
         try {
             s3Client.createBucket( bucketName );
+            logger.debug( "Bucket wasn't found so created a new bucket with the name:"+bucketName );
         }catch ( Exception e ){
             logger.error( "creating the bucket failed due to \""+e.getMessage()+"\"");
         }
@@ -126,8 +126,17 @@ public class AwsS3ExportImpl implements S3Export {
         //Multipart upload of the file if it is >5mb otherwise
         //we can just upload it if it is a small export
         logger.debug( "Upload the file to amazon s3" );
+        //for ( File fileToBeUploaded : ephemeral )
+        List<File> filePointersToEntityFiles= ( List<File> ) ephemeral.get( "entities" );
+        int index = 1;
+        for(File entitiesToExport: filePointersToEntityFiles)
+            write( entitiesToExport,"entities"+index+filename,bucketName );
 
-        write( ephemeral,filename,bucketName );
+        index = 1;
+        List<File> filePointersToConnectionFiles= ( List<File> ) ephemeral.get( "connections" );
+        for(File connectionsToExport: filePointersToConnectionFiles)
+            write( connectionsToExport, "connections"+index+ filename, bucketName );
+
 
     }
 

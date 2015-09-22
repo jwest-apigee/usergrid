@@ -19,6 +19,9 @@ package org.apache.usergrid.management.export;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -344,14 +347,14 @@ public class ExportServiceImpl implements ExportService {
 
             appFileName = prepareOutputFileName( application.getValue(), null );
 
-            File ephemeral = collectionExportAndQuery( application.getKey(), config, export, jobExecution );
+            Map ephemeral = collectionExportAndQuery( application.getKey(), config, export, jobExecution );
 
             fileTransfer( export, appFileName, ephemeral, config, s3Export );
         }
     }
 
 
-    public void fileTransfer( Export export, String appFileName, File ephemeral, Map<String, Object> config,
+    public void fileTransfer( Export export, String appFileName, Map ephemeral, Map<String, Object> config,
                               S3Export s3Export ) {
         try {
             s3Export.copyToS3( ephemeral, config, appFileName );
@@ -377,7 +380,7 @@ public class ExportServiceImpl implements ExportService {
         ApplicationInfo application = managementService.getApplicationInfo( applicationId );
         String appFileName = prepareOutputFileName( application.getName(), null );
 
-        File ephemeral = collectionExportAndQuery(applicationId, config, export, jobExecution);
+        Map ephemeral = collectionExportAndQuery( applicationId, config, export, jobExecution );
 
         fileTransfer( export, appFileName, ephemeral, config, s3Export );
     }
@@ -397,7 +400,7 @@ public class ExportServiceImpl implements ExportService {
         String appFileName = prepareOutputFileName( application.getName(), ( String ) config.get( "collectionName" ) );
 
 
-        File ephemeral = collectionExportAndQuery( applicationUUID, config, export, jobExecution );
+        Map ephemeral = collectionExportAndQuery( applicationUUID, config, export, jobExecution );
 
         fileTransfer( export, appFileName, ephemeral, config, s3Export );
     }
@@ -429,7 +432,7 @@ public class ExportServiceImpl implements ExportService {
             throws Exception {
 
         // Write connections
-        saveConnections( entity, em, jg );
+        //saveConnections( entity, em, jg );
         // Write dictionaries
         saveDictionaries( entity, em, jg );
 
@@ -464,16 +467,53 @@ public class ExportServiceImpl implements ExportService {
         }
     }
 
+    /**
+    Returns dictionaries that contain values that should be exported. If this set contains 0 strings then that means
+    there are no meaningful dictionaries to write and they shouldn't be exported or written to the exported file.
+
+     In the best case we don't find any hits then we short circut the entire dictionary flow. That gives us O(n) perf.
+     In the worst case the valid hit is at the end and we take a O(2n) search.
+
+     One way this could be improved is to save all the things that are worth writing and then pass the set back
+     with those values. Then if it is empty we still have O(n) but otherwise we just do O ( n+ values that need to be written ).
+     //TODO: find a way to speed up dictionary exporting.
+
+     */
+    private Boolean worthExportingDictionaryValues(Entity entity, EntityManager em) throws Exception {
+        //Retrieve all dictionaries that the entity has a reference to
+        Set<String> dictionaries = em.getDictionaries( entity );
+
+        for ( String dictionary : dictionaries ) {
+
+            Map<Object, Object> dict = em.getDictionaryAsMap( entity, dictionary );
+
+            // nothing to do
+            if ( dict.isEmpty() ) {
+                continue;
+            }
+            //yes it is worth returning the values
+            return true;
+
+        }
+        //not it is not worth returning the values.
+        return false;
+
+    }
 
     /**
      * Persists the connection for this entity.
      */
     private void saveDictionaries( Entity entity, EntityManager em, JsonGenerator jg ) throws Exception {
 
+        //Short circut if you don't find any dictionaries.
+        Set<String> dictionaries = em.getDictionaries( entity );
+        if(!worthExportingDictionaryValues(entity,em))
+            return;
+
+        jg.writeStartObject();
         jg.writeFieldName( "dictionaries" );
         jg.writeStartObject();
 
-        Set<String> dictionaries = em.getDictionaries( entity );
         for ( String dictionary : dictionaries ) {
 
             Map<Object, Object> dict = em.getDictionaryAsMap( entity, dictionary );
@@ -495,6 +535,7 @@ public class ExportServiceImpl implements ExportService {
             jg.writeEndObject();
         }
         jg.writeEndObject();
+        jg.writeEndObject();
     }
 
 
@@ -503,10 +544,15 @@ public class ExportServiceImpl implements ExportService {
      */
     private void saveConnections( Entity entity, EntityManager em, JsonGenerator jg ) throws Exception {
 
-        jg.writeFieldName( "connections" );
+        //Short circut if you don't find any connections.
+        Set<String> connectionTypes = em.getConnectionsAsSource( entity );
+        if(connectionTypes.size() == 0)
+            return;
+
+        jg.writeStartObject();
+        jg.writeFieldName( entity.getUuid().toString() );
         jg.writeStartObject();
 
-        Set<String> connectionTypes = em.getConnectionsAsSource( entity );
         for ( String connectionType : connectionTypes ) {
 
             jg.writeFieldName( connectionType );
@@ -523,19 +569,29 @@ public class ExportServiceImpl implements ExportService {
             jg.writeEndArray();
         }
         jg.writeEndObject();
+        jg.writeEndObject();
+        jg.writeRaw( '\n' );
+        jg.flush();
     }
 
 
     protected JsonGenerator getJsonGenerator( File ephermal ) throws IOException {
         //TODO:shouldn't the below be UTF-16?
 
-        JsonGenerator jg = jsonFactory.createJsonGenerator( ephermal, JsonEncoding.UTF8 );
-        //jg.setPrettyPrinter( new DefaultPrettyPrinter(  ) );
+        JsonGenerator jg = jsonFactory.createGenerator( ephermal, JsonEncoding.UTF8 );
         jg.setPrettyPrinter( new MinimalPrettyPrinter( "" ) );
         jg.setCodec( new ObjectMapper() );
         return jg;
     }
 
+    protected JsonGenerator getJsonGenerator( OutputStream outputStream ) throws IOException {
+        //TODO:shouldn't the below be UTF-16?
+
+        JsonGenerator jg = jsonFactory.createGenerator( outputStream,JsonEncoding.UTF16_LE );
+        jg.setPrettyPrinter( new MinimalPrettyPrinter( "" ) );
+        jg.setCodec( new ObjectMapper() );
+        return jg;
+    }
 
     /**
      * @return the file name concatenated with the type and the name of the collection
@@ -561,17 +617,27 @@ public class ExportServiceImpl implements ExportService {
      * handles the query and export of collections
      */
     //TODO:Needs further refactoring.
-    protected File collectionExportAndQuery( UUID applicationUUID, final Map<String, Object> config, Export export,
+    protected Map collectionExportAndQuery( UUID applicationUUID, final Map<String, Object> config, Export export,
                                              final JobExecution jobExecution ) throws Exception {
 
         EntityManager em = emf.getEntityManager( applicationUUID );
         Map<String, Object> metadata = em.getApplicationCollectionMetadata();
         long starting_time = System.currentTimeMillis();
-        File ephemeral = new File( "tempExport" + UUID.randomUUID() );
-        ephemeral.deleteOnExit();
 
+        //Could easily be converted to take in input streams. Just a harder refactor.
+        List<File> entitiesToExport = new ArrayList<>(  );
+        File entityFileToBeExported = new File( "tempEntityExportPart1");
+        JsonGenerator jg = getJsonGenerator( entityFileToBeExported );
+        entityFileToBeExported.deleteOnExit();
+        entitiesToExport.add( entityFileToBeExported );
 
-        JsonGenerator jg = getJsonGenerator( ephemeral );
+        List<File> connectionsToExport = new ArrayList<>(  );
+        File connectionFileToBeExported = new File ("tempConnectionExportPart1");
+        connectionFileToBeExported.deleteOnExit();
+        JsonGenerator connectionJsonGeneration = getJsonGenerator( connectionFileToBeExported );
+        connectionsToExport.add( connectionFileToBeExported );
+
+        // JsonGenerator connectionJsonGeneration = getJsonGenerator(  )//I believe this can take in a inputstream
 
        // jg.writeStartObject();
        // jg.writeObjectFieldStart( "collections" );
@@ -604,34 +670,49 @@ public class ExportServiceImpl implements ExportService {
                 query.setResultsLevel( Level.ALL_PROPERTIES );
                 query.setCollection( collectionName );
 
+                //counter that will inform when we should split into another file.
                 Results entities = em.searchCollection( em.getApplicationRef(), collectionName, query );
-                //pages through the query and backs up all results.
+
                 PagingResultsIterator itr = new PagingResultsIterator( entities );
+                int entitiesExportedCount = 0;
+                int currentFilePartIndex = 1;
+
                 for ( Object e : itr ) {
                     starting_time = checkTimeDelta( starting_time, jobExecution );
                     Entity entity = ( Entity ) e;
-                    jg.writeStartObject();
-                    jg.writeFieldName( "Metadata" );
                     jg.writeObject( entity );
                     saveCollectionMembers( jg, em, ( String ) config.get( "collectionName" ), entity );
-                    jg.writeEndObject();
-                    jg.writeRaw('\n');
+                    saveConnections( entity, em, connectionJsonGeneration );
+                    jg.writeRaw( '\n' );
                     jg.flush();
+                    entitiesExportedCount++;
+                    if(entitiesExportedCount%1000==0){
+                        //Time to split files
+                        currentFilePartIndex++;
+                        entityFileToBeExported = new File( "tempEntityExportPart"+currentFilePartIndex);
+                        jg = getJsonGenerator( entityFileToBeExported );
+                        entityFileToBeExported.deleteOnExit();
+                        entitiesToExport.add( entityFileToBeExported );
+
+                       //It is quite likely that there are files that do not contain any connections and thus there will not
+                        //be anything to write to these empty connection files. Not entirely sure what to do about that at this point.
+                        connectionFileToBeExported = new File ("tempConnectionExportPart"+currentFilePartIndex);
+                        connectionFileToBeExported.deleteOnExit();
+                        connectionJsonGeneration = getJsonGenerator( connectionFileToBeExported );
+                        connectionsToExport.add( connectionFileToBeExported );
+                    }
 
                 }
-
-
-
-                //write out the end collection
-                //jg.writeEndArray();
             }
 
         }
-        //jg.writeEndObject();
-        //jg.writeEndObject();
         jg.flush();
         jg.close();
 
-        return ephemeral;
+        HashMap<String,List> filePointers = new HashMap<>(  );
+        filePointers.put( "entities",entitiesToExport );
+        filePointers.put( "connections",connectionsToExport );
+
+        return filePointers;
     }
 }

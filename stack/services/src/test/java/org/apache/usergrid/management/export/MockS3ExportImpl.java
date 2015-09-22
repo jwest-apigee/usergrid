@@ -19,6 +19,7 @@ package org.apache.usergrid.management.export;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
@@ -42,15 +43,33 @@ public class MockS3ExportImpl implements S3Export {
 
 
     @Override
-    public void copyToS3( File ephemeral, final Map<String,Object> exportInfo, String ignoredFileName ) {
+    public void copyToS3( Map ephemeral, final Map<String,Object> exportInfo, String ignoredFileName ) {
 
-        File verifiedData = new File( filename );
-        try {
-            FileUtils.copyFile(ephemeral, verifiedData);
-            logger.info( "Copied file {} to {}", ephemeral.getAbsolutePath(), verifiedData );
+        List<File> entityFilesToBeExported = ( List<File> ) ephemeral.get( "entities" );
+        List<File> connectionFilesToBeExported = (List<File>) ephemeral.get("connections");
+
+        int fileCounter = 1;
+        for(File fileToBeWritten: entityFilesToBeExported ) {
+            File verifiedData = new File( "entities"+fileCounter+filename );
+            try {
+                FileUtils.copyFile( fileToBeWritten, verifiedData );
+                logger.info( "Copied file {} to {}", fileToBeWritten.getAbsolutePath(), verifiedData );
+            }
+            catch ( IOException e ) {
+                e.printStackTrace();
+            }
         }
-        catch ( IOException e ) {
-            e.printStackTrace();
+
+        fileCounter = 1;
+        for(File fileToBeWritten: connectionFilesToBeExported ) {
+            File verifiedData = new File("connections"+fileCounter+ filename );
+            try {
+                FileUtils.copyFile( fileToBeWritten, verifiedData );
+                logger.info( "Copied file {} to {}", fileToBeWritten.getAbsolutePath(), verifiedData );
+            }
+            catch ( IOException e ) {
+                e.printStackTrace();
+            }
         }
     }
 }

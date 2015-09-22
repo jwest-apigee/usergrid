@@ -14,44 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.usergrid.management.export;
 
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
-import java.util.*;
-
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.Protocol;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.AccessControlList;
-import com.amazonaws.services.s3.model.DeleteObjectRequest;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.MultiObjectDeleteException;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.util.concurrent.Service;
-
-import org.apache.commons.lang.RandomStringUtils;
-import org.apache.commons.lang3.StringUtils;
-
-import org.apache.usergrid.batch.service.JobSchedulerService;
-import org.apache.usergrid.persistence.ConnectionRef;
-import org.apache.usergrid.persistence.core.aws.NoAWSCredsRule;
-import org.apache.usergrid.persistence.entities.User;
-import org.apache.usergrid.services.AbstractServiceIT;
-import org.apache.usergrid.services.ServiceAction;
-import org.apache.usergrid.utils.UUIDUtils;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.UUID;
 
 import org.jclouds.ContextBuilder;
 import org.jclouds.blobstore.BlobStore;
@@ -60,28 +39,52 @@ import org.jclouds.blobstore.domain.Blob;
 import org.jclouds.http.config.JavaUrlHttpCommandExecutorServiceModule;
 import org.jclouds.logging.log4j.config.Log4JLoggingModule;
 import org.jclouds.netty.config.NettyPayloadModule;
-import org.junit.*;
+import org.junit.Assert;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import org.apache.commons.lang.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.apache.usergrid.NewOrgAppAdminRule;
-import org.apache.usergrid.ServiceITSetup;
-import org.apache.usergrid.ServiceITSetupImpl;
 import org.apache.usergrid.batch.JobExecution;
-import org.apache.usergrid.cassandra.ClearShiroSubject;
-
+import org.apache.usergrid.batch.service.JobSchedulerService;
 import org.apache.usergrid.management.ApplicationInfo;
 import org.apache.usergrid.management.OrganizationInfo;
 import org.apache.usergrid.management.UserInfo;
 import org.apache.usergrid.persistence.Entity;
 import org.apache.usergrid.persistence.EntityManager;
 import org.apache.usergrid.persistence.SimpleEntityRef;
+import org.apache.usergrid.persistence.core.aws.NoAWSCredsRule;
 import org.apache.usergrid.persistence.entities.JobData;
+import org.apache.usergrid.persistence.entities.User;
+import org.apache.usergrid.services.AbstractServiceIT;
+import org.apache.usergrid.services.ServiceAction;
 import org.apache.usergrid.setup.ConcurrentProcessSingleton;
 
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.Protocol;
 import com.amazonaws.SDKGlobalConfiguration;
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Service;
 import com.google.inject.Module;
 
 import static org.apache.usergrid.TestHelper.newUUIDString;
@@ -92,36 +95,24 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
 /**
- *
- *
+ * Export Service Tests that don't need to connect to s3 to verify that export format is working.
  */
-public class ExportServiceIT extends AbstractServiceIT {
+public class MockExportServiceIT extends AbstractServiceIT {
 
     private static final Logger logger = LoggerFactory.getLogger( ExportServiceIT.class );
 
     @Rule
     public NewOrgAppAdminRule newOrgAppAdminRule = new NewOrgAppAdminRule( setup );
 
-    @Rule
-    public NoAWSCredsRule noCredsRule = new NoAWSCredsRule();
-
     // app-level data generated only once
     private UserInfo adminUser;
     private OrganizationInfo organization;
     private UUID applicationId;
-    private AmazonS3 s3Client;
-
-
-    private static String bucketPrefix;
-
-    private String bucketName;
-
 
     @Before
     public void setup() throws Exception {
@@ -151,55 +142,9 @@ public class ExportServiceIT extends AbstractServiceIT {
 
     @Before
     public void before() {
-
-        boolean configured =
-            !StringUtils.isEmpty( System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR ) ) && !StringUtils
-                .isEmpty( System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR ) ) && !StringUtils
-                .isEmpty( System.getProperty( "bucket_location" ) );
-
-        if ( !configured ) {
-            logger.warn( "Skipping test because {}, {} and bucketName not "
-                    + "specified as system properties, e.g. in your Maven settings.xml file.", new Object[] {
-                    SDKGlobalConfiguration.SECRET_KEY_ENV_VAR, SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR
-                } );
-        }
-
-        Assume.assumeTrue( configured );
-
         adminUser = newOrgAppAdminRule.getAdminInfo();
         organization = newOrgAppAdminRule.getOrganizationInfo();
         applicationId = newOrgAppAdminRule.getApplicationInfo().getId();
-        bucketPrefix = System.getProperty( "bucket_location" );
-        bucketName = bucketPrefix;// + RandomStringUtils.randomAlphabetic( 10 ).toLowerCase();
-        //bucketName =  System.getProperty( "bucket_location" );
-
-        AWSCredentials credentials =
-            new BasicAWSCredentials( System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR ),
-                System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR ) );
-        ClientConfiguration clientConfig = new ClientConfiguration();
-        clientConfig.setProtocol( Protocol.HTTP );
-
-        s3Client = new AmazonS3Client( credentials, clientConfig );
-    }
-
-
-    //Deletes the files inside the bucket that was used for testing and then deletes the bucket.
-    @After
-    public void after() {
-        try {
-            //should probably refactor bucketname to be passed in, but then again for a test we'd only use one.
-            Set<String> objectsInBucket = returnObjectListsFromBucket();
-
-            for ( String objectInBucket : objectsInBucket ) {
-                DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest( bucketName, objectInBucket );
-                s3Client.deleteObject( deleteObjectRequest );
-            }
-        }
-        catch ( MultiObjectDeleteException e ) {
-            // Process exception.
-            throw e;
-        }
-        s3Client.deleteBucket( bucketName );
     }
 
 
@@ -209,6 +154,8 @@ public class ExportServiceIT extends AbstractServiceIT {
     public void testConnectionsOnCollectionExport() throws Exception {
 
         File f = null;
+        int indexCon = 0;
+
         try {
             f = new File( "testFileConnections.json" );
         }
@@ -253,7 +200,6 @@ public class ExportServiceIT extends AbstractServiceIT {
         TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         ObjectMapper mapper = new ObjectMapper();
-        //Test fails around here because the file names are changed now. What we are looking for is entities+1+filename
         HashMap<String, Object> jsonMap = mapper.readValue( new FileReader( f ), typeRef );
 
         Map collectionsMap = ( Map ) jsonMap.get( "collections" );
@@ -285,178 +231,178 @@ public class ExportServiceIT extends AbstractServiceIT {
 
     //What is required to make this test a reality?
     //Second we need a way to delete the file and bucket out of s3 once data has been verified.
-    @Test
-    public void testConnectionsOnApplicationExport() throws Exception {
-        //Populate a application with data that contains connections.
-        ExportService exportService = setup.getExportService();
-
-        ApplicationInfo appMade = setup.getMgmtSvc().getApplicationInfo(
-            app.getOrgName() + "/" + app.getAppName().toLowerCase() );
-        String orgName = setup.getMgmtSvc().getOrganizations().values().iterator().next();
-
-        OrganizationInfo orgMade = setup.getMgmtSvc().getOrganizationByName( orgName );
-
-
-        EntityManager em = setup.getEmf().getEntityManager( appMade.getId() );
-        em.createApplicationCollection( "testConnectionsOnApplicationCol" );
-
-        Entity[] entity;
-        entity = new Entity[2];
-
-        for ( int i = 0; i < 2; i++ ) {
-            app.put( "username", "billybob" + RandomStringUtils.randomAlphabetic( 5 ).toLowerCase() );
-            app.put( "email", "test" + RandomStringUtils.randomAlphabetic( 5 ).toLowerCase() + i + "@anuff.com" );
-
-            entity[i] = app.testRequest( ServiceAction.POST, 1, "users" ).getEntity();
-            app.testRequest( ServiceAction.GET, 1, "users", ( ( User ) entity[i] ).getUsername() );
-        }
-
-        //POST users/conn-user1/manages/user2/conn-user2
-        app.testRequest( ServiceAction.POST, 1, "users", ( ( User ) entity[0] ).getUsername(), "manages", "users",
-            ( ( User ) entity[1] ).getUsername() );
-        app.testRequest( ServiceAction.GET, 1, "users", ( ( User ) entity[0] ).getUsername() );
-
-        //POST users/conn-user1/reports/users/conn-user2
-        app.testRequest( ServiceAction.POST, 1, "users", ( ( User ) entity[1] ).getUsername(), "relates", "users",
-            ( ( User ) entity[0] ).getUsername() );
-        Entity user2 = app.testRequest( ServiceAction.GET, 1, "users", ( ( User ) entity[1] ).getUsername() ).getEntity();
-
-        setup.refreshIndex( appMade.getId() );
-
-        HashMap<String, Object> payload = payloadBuilder( appMade.getName() );
-
-        payload.put( "organizationId", orgMade.getUuid() );
-        payload.put("applicationId",appMade.getId());
-
-        //this kicks off the actual export with a unique bucket and filename.
-        UUID exportUUID = exportService.schedule( payload );
-        assertNotNull( exportUUID );
-
-        //Anything around two seconds isn't enough for s3 so I bumped it up to 4 seconds to be safe.
-        Thread.sleep( 4000 );
-
-        logger.info( "Downloading an object" );
-
-        Set<String> s3ObjectList = returnObjectListsFromBucket();
-        assertNotEquals( 0, s3ObjectList.size() );
-
-
-        for ( String s3ObjectKey : s3ObjectList ) {
-
-            TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
-
-            S3ObjectInputStream s3ObjectInputStream = s3Client.getObject( bucketName, s3ObjectKey ).getObjectContent();
-
-            ObjectMapper mapper = new ObjectMapper();
-            Map<String, Object> exportJsonEntitiesMap = mapper.readValue( s3ObjectInputStream, typeRef );
-
-            assertNotNull( exportJsonEntitiesMap );
-
-            Map collectionsMap = ( Map ) exportJsonEntitiesMap.get( "collections" );
-            String collectionName = ( String ) collectionsMap.keySet().iterator().next();
-            List collection = ( List ) collectionsMap.get( "users" );
-
-            for ( Object o : collection ) {
-                Map entityMap = ( Map ) o;
-                Map metadataMap = ( Map ) entityMap.get( "connections" );
-                assertNotEquals( "Connections weren't saved in the export process.", 0, metadataMap.size() );
-            }
-        }
-    }
+//    @Test
+//    public void testConnectionsOnApplicationExport() throws Exception {
+//        //Populate a application with data that contains connections.
+//        ExportService exportService = setup.getExportService();
+//
+//        ApplicationInfo appMade = setup.getMgmtSvc().getApplicationInfo(
+//            app.getOrgName() + "/" + app.getAppName().toLowerCase() );
+//        String orgName = setup.getMgmtSvc().getOrganizations().values().iterator().next();
+//
+//        OrganizationInfo orgMade = setup.getMgmtSvc().getOrganizationByName( orgName );
+//
+//
+//        EntityManager em = setup.getEmf().getEntityManager( appMade.getId() );
+//        em.createApplicationCollection( "testConnectionsOnApplicationCol" );
+//
+//        Entity[] entity;
+//        entity = new Entity[2];
+//
+//        for ( int i = 0; i < 2; i++ ) {
+//            app.put( "username", "billybob" + RandomStringUtils.randomAlphabetic( 5 ).toLowerCase() );
+//            app.put( "email", "test" + RandomStringUtils.randomAlphabetic( 5 ).toLowerCase() + i + "@anuff.com" );
+//
+//            entity[i] = app.testRequest( ServiceAction.POST, 1, "users" ).getEntity();
+//            app.testRequest( ServiceAction.GET, 1, "users", ( ( User ) entity[i] ).getUsername() );
+//        }
+//
+//        //POST users/conn-user1/manages/user2/conn-user2
+//        app.testRequest( ServiceAction.POST, 1, "users", ( ( User ) entity[0] ).getUsername(), "manages", "users",
+//            ( ( User ) entity[1] ).getUsername() );
+//        app.testRequest( ServiceAction.GET, 1, "users", ( ( User ) entity[0] ).getUsername() );
+//
+//        //POST users/conn-user1/reports/users/conn-user2
+//        app.testRequest( ServiceAction.POST, 1, "users", ( ( User ) entity[1] ).getUsername(), "relates", "users",
+//            ( ( User ) entity[0] ).getUsername() );
+//        Entity user2 = app.testRequest( ServiceAction.GET, 1, "users", ( ( User ) entity[1] ).getUsername() ).getEntity();
+//
+//        setup.refreshIndex( appMade.getId() );
+//
+//        HashMap<String, Object> payload = payloadBuilder( appMade.getName() );
+//
+//        payload.put( "organizationId", orgMade.getUuid() );
+//        payload.put("applicationId",appMade.getId());
+//
+//        //this kicks off the actual export with a unique bucket and filename.
+//        UUID exportUUID = exportService.schedule( payload );
+//        assertNotNull( exportUUID );
+//
+//        //Anything around two seconds isn't enough for s3 so I bumped it up to 4 seconds to be safe.
+//        Thread.sleep( 4000 );
+//
+//        logger.info( "Downloading an object" );
+//
+//        Set<String> s3ObjectList = returnObjectListsFromBucket();
+//        assertNotEquals( 0, s3ObjectList.size() );
+//
+//
+//        for ( String s3ObjectKey : s3ObjectList ) {
+//
+//            TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
+//
+//            S3ObjectInputStream s3ObjectInputStream = s3Client.getObject( bucketName, s3ObjectKey ).getObjectContent();
+//
+//            ObjectMapper mapper = new ObjectMapper();
+//            Map<String, Object> exportJsonEntitiesMap = mapper.readValue( s3ObjectInputStream, typeRef );
+//
+//            assertNotNull( exportJsonEntitiesMap );
+//
+//            Map collectionsMap = ( Map ) exportJsonEntitiesMap.get( "collections" );
+//            String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+//            List collection = ( List ) collectionsMap.get( "users" );
+//
+//            for ( Object o : collection ) {
+//                Map entityMap = ( Map ) o;
+//                Map metadataMap = ( Map ) entityMap.get( "connections" );
+//                assertNotEquals( "Connections weren't saved in the export process.", 0, metadataMap.size() );
+//            }
+//        }
+//    }
 
 
     //Second we need a way to delete the file and bucket out of s3 once data has been verified.
-    @Test
-    public void testApplicationExport() throws Exception {
-        //Populate a application with data that contains connections.
-        ExportService exportService = setup.getExportService();
-
-        String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder( appName );
-
-        OrganizationInfo orgMade = null;
-        ApplicationInfo appMade = null;
-        for ( int i = 0; i < 5; i++ ) {
-            orgMade = setup.getMgmtSvc().createOrganization( "minorboss" + i, adminUser, true );
-            for ( int j = 0; j < 5; j++ ) {
-                appMade = setup.getMgmtSvc().createApplication( orgMade.getUuid(), "superapp" + j );
-
-                EntityManager customMaker = setup.getEmf().getEntityManager( appMade.getId() );
-                customMaker.createApplicationCollection( "superappCol" + j );
-                //intialize user object to be posted
-                Map<String, Object> entityLevelProperties = null;
-                Entity[] entNotCopied;
-                entNotCopied = new Entity[5];
-                //creates entities
-                for ( int index = 0; index < 5; index++ ) {
-                    entityLevelProperties = new LinkedHashMap<String, Object>();
-                    entityLevelProperties.put( "derp", "bacon" );
-                    entNotCopied[index] = customMaker.create( "superappCol" + j, entityLevelProperties );
-                }
-            }
-        }
-
-        payload.put( "organizationId", orgMade.getUuid() );
-
-        //this kicks off the actual export with a unique bucket and filename.
-        UUID exportUUID = exportService.schedule( payload );
-        assertNotNull( exportUUID );
-
-        //Anything around two seconds isn't enough for s3 so I bumped it up to 5 seconds to be safe.
-        Thread.sleep( 5000 );
-
-        logger.info( "Downloading an object" );
-
-        Set<String> s3ObjectList = returnObjectListsFromBucket();
-        assertNotEquals( 0, s3ObjectList.size() );
-
-
-        for ( String s3ObjectKey : s3ObjectList ) {
-
-            TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
-
-            S3ObjectInputStream s3ObjectInputStream = s3Client.getObject( bucketName, s3ObjectKey ).getObjectContent();
-
-            ObjectMapper mapper = new ObjectMapper();
-            Map<String, Object> exportJsonEntitiesMap = mapper.readValue( s3ObjectInputStream, typeRef );
-
-            assertNotNull( exportJsonEntitiesMap );
-
-            Map collectionsMap = ( Map ) exportJsonEntitiesMap.get( "collections" );
-            String collectionName = ( String ) collectionsMap.keySet().iterator().next();
-            List collection = ( List ) collectionsMap.get( collectionName );
-
-            for ( Object o : collection ) {
-                Map entityMap = ( Map ) o;
-                Map metadataMap = ( Map ) entityMap.get( "Metadata" );
-                String entityName = ( String ) metadataMap.get( "derp" );
-                assertTrue( "derp doesn't contain bacon? What??", entityName.equals( "bacon" ) );
-            }
-        }
-
-        //do what you did below as that is how they are stored. Look at the bucket and make sure its randomized.
-
-        //verify that all objects are still there
-    }
+//    @Test
+//    public void testApplicationExport() throws Exception {
+//        //Populate a application with data that contains connections.
+//        ExportService exportService = setup.getExportService();
+//
+//        String appName = newOrgAppAdminRule.getApplicationInfo().getName();
+//        HashMap<String, Object> payload = payloadBuilder( appName );
+//
+//        OrganizationInfo orgMade = null;
+//        ApplicationInfo appMade = null;
+//        for ( int i = 0; i < 5; i++ ) {
+//            orgMade = setup.getMgmtSvc().createOrganization( "minorboss" + i, adminUser, true );
+//            for ( int j = 0; j < 5; j++ ) {
+//                appMade = setup.getMgmtSvc().createApplication( orgMade.getUuid(), "superapp" + j );
+//
+//                EntityManager customMaker = setup.getEmf().getEntityManager( appMade.getId() );
+//                customMaker.createApplicationCollection( "superappCol" + j );
+//                //intialize user object to be posted
+//                Map<String, Object> entityLevelProperties = null;
+//                Entity[] entNotCopied;
+//                entNotCopied = new Entity[5];
+//                //creates entities
+//                for ( int index = 0; index < 5; index++ ) {
+//                    entityLevelProperties = new LinkedHashMap<String, Object>();
+//                    entityLevelProperties.put( "derp", "bacon" );
+//                    entNotCopied[index] = customMaker.create( "superappCol" + j, entityLevelProperties );
+//                }
+//            }
+//        }
+//
+//        payload.put( "organizationId", orgMade.getUuid() );
+//
+//        //this kicks off the actual export with a unique bucket and filename.
+//        UUID exportUUID = exportService.schedule( payload );
+//        assertNotNull( exportUUID );
+//
+//        //Anything around two seconds isn't enough for s3 so I bumped it up to 5 seconds to be safe.
+//        Thread.sleep( 5000 );
+//
+//        logger.info( "Downloading an object" );
+//
+//        Set<String> s3ObjectList = returnObjectListsFromBucket();
+//        assertNotEquals( 0, s3ObjectList.size() );
+//
+//
+//        for ( String s3ObjectKey : s3ObjectList ) {
+//
+//            TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
+//
+//            S3ObjectInputStream s3ObjectInputStream = s3Client.getObject( bucketName, s3ObjectKey ).getObjectContent();
+//
+//            ObjectMapper mapper = new ObjectMapper();
+//            Map<String, Object> exportJsonEntitiesMap = mapper.readValue( s3ObjectInputStream, typeRef );
+//
+//            assertNotNull( exportJsonEntitiesMap );
+//
+//            Map collectionsMap = ( Map ) exportJsonEntitiesMap.get( "collections" );
+//            String collectionName = ( String ) collectionsMap.keySet().iterator().next();
+//            List collection = ( List ) collectionsMap.get( collectionName );
+//
+//            for ( Object o : collection ) {
+//                Map entityMap = ( Map ) o;
+//                Map metadataMap = ( Map ) entityMap.get( "Metadata" );
+//                String entityName = ( String ) metadataMap.get( "derp" );
+//                assertTrue( "derp doesn't contain bacon? What??", entityName.equals( "bacon" ) );
+//            }
+//        }
+//
+//        //do what you did below as that is how they are stored. Look at the bucket and make sure its randomized.
+//
+//        //verify that all objects are still there
+//    }
 
 
     @Test //Connections won't save when run with maven, but on local builds it will.
     public void testConnectionsOnApplicationEndpoint() throws Exception {
 
-        File f = null;
+        String testFileName ="testConnectionsOnApplicationEndpoint.json";
+//        File f = null;
+//
+//        try {
+//            f = new File( testFileName );
+//        }
+//        catch ( Exception e ) {
+//            // consumed because this checks to see if the file exists.
+//            // If it doesn't then don't do anything and carry on.
+//        }
+//        f.deleteOnExit();
 
-        try {
-            f = new File( "testConnectionsOnApplicationEndpoint.json" );
-        }
-        catch ( Exception e ) {
-            // consumed because this checks to see if the file exists.
-            // If it doesn't then don't do anything and carry on.
-        }
-        f.deleteOnExit();
 
-        String fileName = "testConnectionsOnApplicationEndpoint.json";
-
-        S3Export s3Export = new MockS3ExportImpl( "testConnectionsOnApplicationEndpoint.json" );
+        S3Export s3Export = new MockS3ExportImpl( testFileName );
 
         ExportService exportService = setup.getExportService();
 
@@ -503,31 +449,70 @@ public class ExportServiceIT extends AbstractServiceIT {
 
         TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
-        ObjectMapper mapper = new ObjectMapper();
-        HashMap<String, Object> jsonMap = mapper.readValue( new FileReader( f ), typeRef );
+        int validEntitiesCounter = 0;
+        final InputStream in = new FileInputStream( "entities1"+testFileName );
+        try{
+            ObjectMapper mapper = new ObjectMapper();
+            JsonParser jp = new JsonFactory(  ).createParser( in );
 
-        Map collectionsMap = ( Map ) jsonMap.get( "collections" );
-        List usersList = ( List ) collectionsMap.get( "users" );
 
-        int indexApp = 0;
-        for ( indexApp = 0; indexApp < usersList.size(); indexApp++ ) {
-            Map user = ( Map ) usersList.get( indexApp );
-            Map userProps = ( Map ) user.get( "Metadata" );
-            String uuid = ( String ) userProps.get( "uuid" );
-            if ( entity[0].getUuid().toString().equals( uuid ) ) {
-                break;
+            Iterator jsonIterator = mapper.readValues( jp, typeRef);
+            while(jsonIterator.hasNext()){
+                Object jsonEntity =  jsonIterator.next();
+                if(( ( HashMap ) jsonEntity ).get( "uuid" ).equals( entity[0].getUuid().toString())){
+                    validEntitiesCounter++;
+                }
+                else if(( ( HashMap ) jsonEntity ).get( "uuid" ).equals(entity[1].getUuid().toString())){
+                    validEntitiesCounter++;
+                }
             }
+        }finally{
+            in.close();
+            File exportedFile = new File("entities1"+testFileName);
+            exportedFile.delete();
         }
 
-        assertTrue( "Uuid was not found in exported files. ", indexApp < usersList.size() );
+        assertEquals( "There should have been two valid entities in the file",2,validEntitiesCounter );
 
-        Map userMap = ( Map ) usersList.get( indexApp );
-        Map connectionsMap = ( Map ) userMap.get( "connections" );
-        assertNotNull( connectionsMap );
+        //Read the connection entities and verify that they are correct
 
-        List vibrationsList = ( List ) connectionsMap.get( "Vibrations" );
+        int validConnectionCounter = 0;
+        final InputStream connectionsInputStream = new FileInputStream( "connections1"+testFileName );
+        try{
+            ObjectMapper mapper = new ObjectMapper();
+            JsonParser jp = new JsonFactory(  ).createParser( connectionsInputStream );
 
-        assertNotNull( vibrationsList );
+            Iterator jsonIterator = mapper.readValues( jp, typeRef);
+            while(jsonIterator.hasNext()){
+                Object jsonConnection =  jsonIterator.next();
+                if(( ( HashMap ) jsonConnection ).get( entity[1].getUuid().toString() )!=null){
+                    Object jsonEntityConnection = ( ( HashMap ) jsonConnection ).get( entity[1].getUuid().toString() );
+                    assertNotNull( ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ) );
+
+                    //String is stored in an array so we need to trim array fixings off the end of the string to compare.
+                    String connectionUuid = ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ).toString();
+                    connectionUuid=connectionUuid.substring( 1,connectionUuid.length()-1 );
+                    if(connectionUuid.equals( entity[0].getUuid().toString() ))
+                        validConnectionCounter++;
+                }
+                else if(( ( HashMap ) jsonConnection ).get( entity[0].getUuid().toString() )!=null){
+                    Object jsonEntityConnection = ( ( HashMap ) jsonConnection ).get( entity[0].getUuid().toString());
+                    assertNotNull( ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ) );
+
+                    String connectionUuid = ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ).toString();
+                    connectionUuid=connectionUuid.substring( 1,connectionUuid.length()-1 );
+
+                    if(connectionUuid.equals( entity[1].getUuid().toString() ))
+                        validConnectionCounter++;
+                }
+            }
+        }finally{
+            in.close();
+            File exportedFile = new File("connections1"+testFileName);
+            exportedFile.delete();
+        }
+
+        assertEquals( "There should have been two valid connections in the file",2,validConnectionCounter );
     }
 
 
@@ -1020,91 +1005,90 @@ public class ExportServiceIT extends AbstractServiceIT {
     }
 
 
-    @Test
-    @Ignore // TODO: fix this test...
-    public void testIntegration100EntitiesOn() throws Exception {
-
-        logger.debug( "testIntegration100EntitiesOn(): starting..." );
-
-        ExportService exportService = setup.getExportService();
-
-        String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder( appName );
-
-        payload.put( "organizationId", organization.getUuid() );
-        payload.put( "applicationId", applicationId );
-
-        // create five applications each with collection of five entities
-
-        for ( int i = 0; i < 5; i++ ) {
-
-            ApplicationInfo appMade = setup.getMgmtSvc().createApplication( organization.getUuid(), "superapp" + i );
-            EntityManager appEm = setup.getEmf().getEntityManager( appMade.getId() );
-
-            String collName = "superappCol" + i;
-            appEm.createApplicationCollection( collName );
-
-            Map<String, Object> entityLevelProperties = null;
-            Entity[] entNotCopied;
-            entNotCopied = new Entity[5];
-
-            for ( int index = 0; index < 5; index++ ) {
-                entityLevelProperties = new LinkedHashMap<String, Object>();
-                entityLevelProperties.put( "username", "bobso" + index );
-                entityLevelProperties.put( "email", "derp" + index + "@anuff.com" );
-                entNotCopied[index] = appEm.create( collName, entityLevelProperties );
-            }
-        }
-
-        // export the organization containing those apps and collections
-
-        UUID exportUUID = exportService.schedule( payload );
-
-        int maxRetries = 100;
-        int retries = 0;
-        while ( !exportService.getState( exportUUID ).equals( "FINISHED" ) && retries++ < maxRetries ) {
-            Thread.sleep( 100 );
-        }
-
-        String accessId = System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR );
-        String secretKey = System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR );
-        Properties overrides = new Properties();
-        overrides.setProperty( "s3" + ".identity", accessId );
-        overrides.setProperty( "s3" + ".credential", secretKey );
-
-        // test that we can find the file that were exported to S3
-
-        BlobStore blobStore = null;
-        try {
-
-            final Iterable<? extends Module> MODULES = ImmutableSet
-                .of( new JavaUrlHttpCommandExecutorServiceModule(), new Log4JLoggingModule(),
-                    new NettyPayloadModule() );
-
-            BlobStoreContext context =
-                ContextBuilder.newBuilder( "s3" ).credentials( accessId, secretKey ).modules( MODULES )
-                              .overrides( overrides ).buildView( BlobStoreContext.class );
-
-            String expectedFileName =
-                ( ( ExportServiceImpl ) exportService ).prepareOutputFileName( organization.getName(), "applications" );
-
-            blobStore = context.getBlobStore();
-            if ( !blobStore.blobExists( bucketName, expectedFileName ) ) {
-                blobStore.deleteContainer( bucketName );
-                Assert.fail( "Blob does not exist: " + expectedFileName );
-            }
-            Blob bo = blobStore.getBlob( bucketName, expectedFileName );
-
-            Long numOfFiles = blobStore.countBlobs( bucketName );
-            Long numWeWant = 1L;
-            blobStore.deleteContainer( bucketName );
-            assertEquals( numOfFiles, numWeWant );
-            assertNotNull( bo );
-        }
-        finally {
-            blobStore.deleteContainer( bucketName );
-        }
-    }
+//    @Test
+//    @Ignore // TODO: fix this test...
+//    public void testIntegration100EntitiesOn() throws Exception {
+//
+//        logger.debug( "testIntegration100EntitiesOn(): starting..." );
+//
+//        ExportService exportService = setup.getExportService();
+//
+//        String appName = newOrgAppAdminRule.getApplicationInfo().getName();
+//        HashMap<String, Object> payload = payloadBuilder( appName );
+//
+//        payload.put( "organizationId", organization.getUuid() );
+//        payload.put( "applicationId", applicationId );
+//
+//        // create five applications each with collection of five entities
+//
+//        for ( int i = 0; i < 5; i++ ) {
+//
+//            ApplicationInfo appMade = setup.getMgmtSvc().createApplication( organization.getUuid(), "superapp" + i );
+//            EntityManager appEm = setup.getEmf().getEntityManager( appMade.getId() );
+//
+//            String collName = "superappCol" + i;
+//            appEm.createApplicationCollection( collName );
+//
+//            Map<String, Object> entityLevelProperties = null;
+//            Entity[] entNotCopied;
+//            entNotCopied = new Entity[5];
+//
+//            for ( int index = 0; index < 5; index++ ) {
+//                entityLevelProperties = new LinkedHashMap<String, Object>();
+//                entityLevelProperties.put( "username", "bobso" + index );
+//                entityLevelProperties.put( "email", "derp" + index + "@anuff.com" );
+//                entNotCopied[index] = appEm.create( collName, entityLevelProperties );
+//            }
+//        }
+//
+//        // export the organization containing those apps and collections
+//
+//        UUID exportUUID = exportService.schedule( payload );
+//
+//        int maxRetries = 100;
+//        int retries = 0;
+//        while ( !exportService.getState( exportUUID ).equals( "FINISHED" ) && retries++ < maxRetries ) {
+//            Thread.sleep( 100 );
+//        }
+//
+//        String accessId = System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR );
+//        String secretKey = System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR );
+//        Properties overrides = new Properties();
+//        overrides.setProperty( "s3" + ".identity", accessId );
+//        overrides.setProperty( "s3" + ".credential", secretKey );
+//
+//        // test that we can find the file that were exported to S3
+//
+//        BlobStore blobStore = null;
+//        try {
+//
+//            final Iterable<? extends Module> MODULES = ImmutableSet
+//                .of( new JavaUrlHttpCommandExecutorServiceModule(), new Log4JLoggingModule(), new NettyPayloadModule() );
+//
+//            BlobStoreContext context =
+//                ContextBuilder.newBuilder( "s3" ).credentials( accessId, secretKey ).modules( MODULES )
+//                              .overrides( overrides ).buildView( BlobStoreContext.class );
+//
+//            String expectedFileName =
+//                ( ( ExportServiceImpl ) exportService ).prepareOutputFileName( organization.getName(), "applications" );
+//
+//            blobStore = context.getBlobStore();
+//            if ( !blobStore.blobExists( bucketName, expectedFileName ) ) {
+//                blobStore.deleteContainer( bucketName );
+//                Assert.fail( "Blob does not exist: " + expectedFileName );
+//            }
+//            Blob bo = blobStore.getBlob( bucketName, expectedFileName );
+//
+//            Long numOfFiles = blobStore.countBlobs( bucketName );
+//            Long numWeWant = 1L;
+//            blobStore.deleteContainer( bucketName );
+//            assertEquals( numOfFiles, numWeWant );
+//            assertNotNull( bo );
+//        }
+//        finally {
+//            blobStore.deleteContainer( bucketName );
+//        }
+//    }
 
 
     //@Ignore("Why is this ignored?")
@@ -1199,100 +1183,100 @@ public class ExportServiceIT extends AbstractServiceIT {
     }
 
 
-    @Ignore( "Why is this ignored" )
-    @Test
-    public void testIntegration100EntitiesOnOneOrg() throws Exception {
-
-        S3Export s3Export = new AwsS3ExportImpl();
-        ExportService exportService = setup.getExportService();
-
-        String appName = newOrgAppAdminRule.getApplicationInfo().getName();
-        HashMap<String, Object> payload = payloadBuilder( appName );
-
-        payload.put( "organizationId", organization.getUuid() );
-        payload.put( "applicationId", applicationId );
-
-        OrganizationInfo orgMade = null;
-        ApplicationInfo appMade = null;
-        for ( int i = 0; i < 100; i++ ) {
-            orgMade = setup.getMgmtSvc().createOrganization( "largerboss" + i, adminUser, true );
-            appMade = setup.getMgmtSvc().createApplication( orgMade.getUuid(), "superapp" + i );
-
-            EntityManager customMaker = setup.getEmf().getEntityManager( appMade.getId() );
-            customMaker.createApplicationCollection( "superappCol" + i );
-            //intialize user object to be posted
-            Map<String, Object> entityLevelProperties = null;
-            Entity[] entNotCopied;
-            entNotCopied = new Entity[20];
-            //creates entities
-            for ( int index = 0; index < 20; index++ ) {
-                entityLevelProperties = new LinkedHashMap<String, Object>();
-                entityLevelProperties.put( "username", "bobso" + index );
-                entityLevelProperties.put( "email", "derp" + index + "@anuff.com" );
-                entNotCopied[index] = customMaker.create( "superappCol", entityLevelProperties );
-            }
-        }
-
-        EntityManager em = setup.getEmf().getEntityManager( applicationId );
-
-        //intialize user object to be posted
-        Map<String, Object> userProperties = null;
-        Entity[] entity;
-        entity = new Entity[100];
-
-        //creates entities
-        for ( int i = 0; i < 100; i++ ) {
-            userProperties = new LinkedHashMap<String, Object>();
-            userProperties.put( "username", "bido" + i );
-            userProperties.put( "email", "bido" + i + "@anuff.com" );
-
-            entity[i] = em.create( "user", userProperties );
-        }
-
-        UUID exportUUID = exportService.schedule( payload );
-
-        while ( !exportService.getState( exportUUID ).equals( "FINISHED" ) ) {
-        }
-
-        String accessId = System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR );
-        String secretKey = System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR );
-
-        Properties overrides = new Properties();
-        overrides.setProperty( "s3" + ".identity", accessId );
-        overrides.setProperty( "s3" + ".credential", secretKey );
-
-        Blob bo = null;
-        BlobStore blobStore = null;
-
-        try {
-            final Iterable<? extends Module> MODULES = ImmutableSet
-                .of( new JavaUrlHttpCommandExecutorServiceModule(), new Log4JLoggingModule(),
-                    new NettyPayloadModule() );
-
-            BlobStoreContext context =
-                ContextBuilder.newBuilder( "s3" ).credentials( accessId, secretKey ).modules( MODULES )
-                              .overrides( overrides ).buildView( BlobStoreContext.class );
-
-            String expectedFileName =
-                ( ( ExportServiceImpl ) exportService ).prepareOutputFileName( organization.getName(), "applications" );
-
-            blobStore = context.getBlobStore();
-            if ( !blobStore.blobExists( bucketName, expectedFileName ) ) {
-                assert ( false );
-            }
-            Long numOfFiles = blobStore.countBlobs( bucketName );
-            Long numWeWant = Long.valueOf( 1 );
-            assertEquals( numOfFiles, numWeWant );
-
-            bo = blobStore.getBlob( bucketName, expectedFileName );
-        }
-        catch ( Exception e ) {
-            assert ( false );
-        }
-
-        assertNotNull( bo );
-        blobStore.deleteContainer( bucketName );
-    }
+//    @Ignore( "Why is this ignored" )
+//    @Test
+//    public void testIntegration100EntitiesOnOneOrg() throws Exception {
+//
+//        S3Export s3Export = new AwsS3ExportImpl();
+//        ExportService exportService = setup.getExportService();
+//
+//        String appName = newOrgAppAdminRule.getApplicationInfo().getName();
+//        HashMap<String, Object> payload = payloadBuilder( appName );
+//
+//        payload.put( "organizationId", organization.getUuid() );
+//        payload.put( "applicationId", applicationId );
+//
+//        OrganizationInfo orgMade = null;
+//        ApplicationInfo appMade = null;
+//        for ( int i = 0; i < 100; i++ ) {
+//            orgMade = setup.getMgmtSvc().createOrganization( "largerboss" + i, adminUser, true );
+//            appMade = setup.getMgmtSvc().createApplication( orgMade.getUuid(), "superapp" + i );
+//
+//            EntityManager customMaker = setup.getEmf().getEntityManager( appMade.getId() );
+//            customMaker.createApplicationCollection( "superappCol" + i );
+//            //intialize user object to be posted
+//            Map<String, Object> entityLevelProperties = null;
+//            Entity[] entNotCopied;
+//            entNotCopied = new Entity[20];
+//            //creates entities
+//            for ( int index = 0; index < 20; index++ ) {
+//                entityLevelProperties = new LinkedHashMap<String, Object>();
+//                entityLevelProperties.put( "username", "bobso" + index );
+//                entityLevelProperties.put( "email", "derp" + index + "@anuff.com" );
+//                entNotCopied[index] = customMaker.create( "superappCol", entityLevelProperties );
+//            }
+//        }
+//
+//        EntityManager em = setup.getEmf().getEntityManager( applicationId );
+//
+//        //intialize user object to be posted
+//        Map<String, Object> userProperties = null;
+//        Entity[] entity;
+//        entity = new Entity[100];
+//
+//        //creates entities
+//        for ( int i = 0; i < 100; i++ ) {
+//            userProperties = new LinkedHashMap<String, Object>();
+//            userProperties.put( "username", "bido" + i );
+//            userProperties.put( "email", "bido" + i + "@anuff.com" );
+//
+//            entity[i] = em.create( "user", userProperties );
+//        }
+//
+//        UUID exportUUID = exportService.schedule( payload );
+//
+//        while ( !exportService.getState( exportUUID ).equals( "FINISHED" ) ) {
+//        }
+//
+//        String accessId = System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR );
+//        String secretKey = System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR );
+//
+//        Properties overrides = new Properties();
+//        overrides.setProperty( "s3" + ".identity", accessId );
+//        overrides.setProperty( "s3" + ".credential", secretKey );
+//
+//        Blob bo = null;
+//        BlobStore blobStore = null;
+//
+//        try {
+//            final Iterable<? extends Module> MODULES = ImmutableSet
+//                .of( new JavaUrlHttpCommandExecutorServiceModule(), new Log4JLoggingModule(),
+//                    new NettyPayloadModule() );
+//
+//            BlobStoreContext context =
+//                ContextBuilder.newBuilder( "s3" ).credentials( accessId, secretKey ).modules( MODULES )
+//                              .overrides( overrides ).buildView( BlobStoreContext.class );
+//
+//            String expectedFileName =
+//                ( ( ExportServiceImpl ) exportService ).prepareOutputFileName( organization.getName(), "applications" );
+//
+//            blobStore = context.getBlobStore();
+//            if ( !blobStore.blobExists( bucketName, expectedFileName ) ) {
+//                assert ( false );
+//            }
+//            Long numOfFiles = blobStore.countBlobs( bucketName );
+//            Long numWeWant = Long.valueOf( 1 );
+//            assertEquals( numOfFiles, numWeWant );
+//
+//            bo = blobStore.getBlob( bucketName, expectedFileName );
+//        }
+//        catch ( Exception e ) {
+//            assert ( false );
+//        }
+//
+//        assertNotNull( bo );
+//        blobStore.deleteContainer( bucketName );
+//    }
 
 
     public JobData jobDataCreator( HashMap<String, Object> payload, UUID exportUUID, S3Export s3Export ) {
@@ -1312,9 +1296,9 @@ public class ExportServiceIT extends AbstractServiceIT {
         HashMap<String, Object> payload = new HashMap<String, Object>();
         Map<String, Object> properties = new HashMap<String, Object>();
         Map<String, Object> storage_info = new HashMap<String, Object>();
-        storage_info.put( "s3_key", System.getProperty( SDKGlobalConfiguration.SECRET_KEY_ENV_VAR ) );
-        storage_info.put( "s3_access_id", System.getProperty( SDKGlobalConfiguration.ACCESS_KEY_ENV_VAR ) );
-        storage_info.put( "bucket_location", bucketName );
+        storage_info.put( "s3_key", "null");
+        storage_info.put( "s3_access_id", "null" );
+        storage_info.put( "bucket_location", "null" );
 
         properties.put( "storage_provider", "s3" );
         properties.put( "storage_info", storage_info );
@@ -1322,23 +1306,5 @@ public class ExportServiceIT extends AbstractServiceIT {
         payload.put( "path", orgOrAppName );
         payload.put( "properties", properties );
         return payload;
-    }
-
-
-    public Set<String> returnObjectListsFromBucket() {
-        ListObjectsRequest listObjectsRequest = new ListObjectsRequest().withBucketName( bucketName );
-        ObjectListing objectListing;
-        S3Object exportedS3Object = null;
-        Set<String> bucketObjectNames = new HashSet<>();
-
-
-        objectListing = s3Client.listObjects( listObjectsRequest );
-        for ( S3ObjectSummary objectSummary : objectListing.getObjectSummaries() ) {
-            System.out.println( " - " + objectSummary.getKey() + "  " +
-                "(size = " + objectSummary.getSize() +
-                ")" );
-            bucketObjectNames.add( objectSummary.getKey() );
-        }
-        return bucketObjectNames;
     }
 }

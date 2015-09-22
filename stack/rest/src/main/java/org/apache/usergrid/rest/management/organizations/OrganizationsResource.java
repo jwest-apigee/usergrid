@@ -176,7 +176,6 @@ public class OrganizationsResource extends AbstractContextResource {
 
         ApiResponse response = createApiResponse();
         response.setAction( "new organization" );
-
         OrganizationOwnerInfo organizationOwner = management
                 .createOwnerAndOrganization( organizationName, username, name, email, password, false, false,
                         userProperties, orgProperties );

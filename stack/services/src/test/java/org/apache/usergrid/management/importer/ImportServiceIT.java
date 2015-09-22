@@ -31,9 +31,9 @@ import org.apache.usergrid.batch.service.JobSchedulerService;
 import org.apache.usergrid.cassandra.ClearShiroSubject;
 import org.apache.usergrid.management.OrganizationInfo;
 import org.apache.usergrid.management.UserInfo;
+import org.apache.usergrid.management.export.AwsS3ExportImpl;
 import org.apache.usergrid.management.export.ExportService;
 import org.apache.usergrid.management.export.S3Export;
-import org.apache.usergrid.management.export.S3ExportImpl;
 import org.apache.usergrid.persistence.*;
 import org.apache.usergrid.persistence.entities.Import;
 import org.apache.usergrid.persistence.entities.JobData;
@@ -162,7 +162,7 @@ public class ImportServiceIT {
 
         // Export the application which needs to be tested for import
         ExportService exportService = setup.getExportService();
-        S3Export s3Export = new S3ExportImpl();
+        S3Export s3Export = new AwsS3ExportImpl();
         HashMap<String, Object> payload = payloadBuilder();
         payload.put( "organizationId",  organization.getUuid());
         payload.put( "applicationId", applicationId );
@@ -290,7 +290,7 @@ public class ImportServiceIT {
 
         //export all applications in an organization
         ExportService exportService = setup.getExportService();
-        S3Export s3Export = new S3ExportImpl();
+        S3Export s3Export = new AwsS3ExportImpl();
         HashMap<String, Object> payload = payloadBuilder();
 
         payload.put( "organizationId",  organization.getUuid());
