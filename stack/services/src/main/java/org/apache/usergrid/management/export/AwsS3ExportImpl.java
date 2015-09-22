@@ -129,13 +129,18 @@ public class AwsS3ExportImpl implements S3Export {
         //for ( File fileToBeUploaded : ephemeral )
         List<File> filePointersToEntityFiles= ( List<File> ) ephemeral.get( "entities" );
         int index = 1;
-        for(File entitiesToExport: filePointersToEntityFiles)
-            write( entitiesToExport,"entities"+index+filename,bucketName );
+        for(File entitiesToExport: filePointersToEntityFiles) {
+            write( entitiesToExport, "entities" + index + filename, bucketName );
+            index++;
+        }
 
+        //index to label which parts of the while we are uploading and not uploading the same one repeatable.
         index = 1;
         List<File> filePointersToConnectionFiles= ( List<File> ) ephemeral.get( "connections" );
-        for(File connectionsToExport: filePointersToConnectionFiles)
-            write( connectionsToExport, "connections"+index+ filename, bucketName );
+        for(File connectionsToExport: filePointersToConnectionFiles) {
+            write( connectionsToExport, "connections" + index + filename, bucketName );
+            index++;
+        }
 
 
     }

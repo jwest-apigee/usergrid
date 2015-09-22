@@ -53,6 +53,7 @@ public class MockS3ExportImpl implements S3Export {
             File verifiedData = new File( "entities"+fileCounter+filename );
             try {
                 FileUtils.copyFile( fileToBeWritten, verifiedData );
+                fileCounter++;
                 logger.info( "Copied file {} to {}", fileToBeWritten.getAbsolutePath(), verifiedData );
             }
             catch ( IOException e ) {
@@ -65,6 +66,7 @@ public class MockS3ExportImpl implements S3Export {
             File verifiedData = new File("connections"+fileCounter+ filename );
             try {
                 FileUtils.copyFile( fileToBeWritten, verifiedData );
+                fileCounter++;
                 logger.info( "Copied file {} to {}", fileToBeWritten.getAbsolutePath(), verifiedData );
             }
             catch ( IOException e ) {

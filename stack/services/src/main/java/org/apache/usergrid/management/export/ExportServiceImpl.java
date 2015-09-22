@@ -623,6 +623,9 @@ public class ExportServiceImpl implements ExportService {
         EntityManager em = emf.getEntityManager( applicationUUID );
         Map<String, Object> metadata = em.getApplicationCollectionMetadata();
         long starting_time = System.currentTimeMillis();
+        //The counter needs to be constant across collections since application exports do across collection aggregation.
+        int entitiesExportedCount = 0;
+
 
         //Could easily be converted to take in input streams. Just a harder refactor.
         List<File> entitiesToExport = new ArrayList<>(  );
@@ -637,11 +640,6 @@ public class ExportServiceImpl implements ExportService {
         JsonGenerator connectionJsonGeneration = getJsonGenerator( connectionFileToBeExported );
         connectionsToExport.add( connectionFileToBeExported );
 
-        // JsonGenerator connectionJsonGeneration = getJsonGenerator(  )//I believe this can take in a inputstream
-
-       // jg.writeStartObject();
-       // jg.writeObjectFieldStart( "collections" );
-
         for ( String collectionName : metadata.keySet() ) {
 
             if ( collectionName.equals( "exports" ) ) {
@@ -649,9 +647,6 @@ public class ExportServiceImpl implements ExportService {
             }
             //if the collection you are looping through doesn't match the name of the one you want. Don't export it.
             if ( ( config.get( "collectionName" ) == null ) || collectionName.equalsIgnoreCase((String)config.get( "collectionName" ) ) ) {
-
-                //write out the collection name at the start of the file
-                //jg.writeArrayFieldStart( collectionName.toLowerCase() );
 
                 //Query entity manager for the entities in a collection
                 Query query = null;
@@ -674,7 +669,6 @@ public class ExportServiceImpl implements ExportService {
                 Results entities = em.searchCollection( em.getApplicationRef(), collectionName, query );
 
                 PagingResultsIterator itr = new PagingResultsIterator( entities );
-                int entitiesExportedCount = 0;
                 int currentFilePartIndex = 1;
 
                 for ( Object e : itr ) {

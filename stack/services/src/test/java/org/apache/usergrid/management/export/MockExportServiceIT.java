@@ -387,20 +387,197 @@ public class MockExportServiceIT extends AbstractServiceIT {
 
 
     @Test //Connections won't save when run with maven, but on local builds it will.
+    public void test2001EntitiesOnApplicationEndpoint() throws Exception {
+
+        String testFileName ="testConnectionsOnApplicationEndpoint.json";
+
+        S3Export s3Export = new MockS3ExportImpl( testFileName );
+
+        ExportService exportService = setup.getExportService();
+
+        String appName = newOrgAppAdminRule.getApplicationInfo().getName();
+        HashMap<String, Object> payload = payloadBuilder( appName );
+
+        payload.put( "organizationId", organization.getUuid() );
+        payload.put( "applicationId", applicationId );
+
+        EntityManager em = setup.getEmf().getEntityManager( applicationId );
+
+        // intialize user object to be posted
+        Map<String, Object> userProperties = null;
+        Entity[] entity;
+        int numberOfEntitiesToBeWritten = 999;
+        entity = new Entity[numberOfEntitiesToBeWritten];
+
+        // creates entities
+        for ( int i = 0; i < numberOfEntitiesToBeWritten; i++ ) {
+            userProperties = new LinkedHashMap<String, Object>();
+            userProperties.put( "username", "billybob" + i );
+            userProperties.put( "email", "test" + i + "@anuff.com" );
+            entity[i] = em.create( "users", userProperties );
+        }
+
+        setup.getEntityIndex().refresh( applicationId );
+
+        Thread.sleep( 1000 );
+
+        UUID exportUUID = exportService.schedule( payload );
+
+        //create and initialize jobData returned in JobExecution.
+        JobData jobData = jobDataCreator( payload, exportUUID, s3Export );
+
+        JobExecution jobExecution = mock( JobExecution.class );
+        when( jobExecution.getJobData() ).thenReturn( jobData );
+
+        exportService.doExport( jobExecution );
+
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
+
+        int validEntitiesCounter = 0;
+        final InputStream in = new FileInputStream( "entities1"+testFileName );
+        try{
+            ObjectMapper mapper = new ObjectMapper();
+            JsonParser jp = new JsonFactory(  ).createParser( in );
+
+
+            Iterator jsonIterator = mapper.readValues( jp, typeRef);
+            while(jsonIterator.hasNext()){
+                Object jsonEntity =  jsonIterator.next();
+                assertNotNull( ( ( HashMap ) jsonEntity ).get( "uuid" ));
+                validEntitiesCounter++;
+            }
+        }finally{
+            in.close();
+//            File exportedFile = new File("entities1"+testFileName);
+//            exportedFile.delete();
+        }
+
+        //need to add three to all verifies because of the three default roles.
+        assertEquals( "There should have been "+(numberOfEntitiesToBeWritten+3)+" valid entities in the file",numberOfEntitiesToBeWritten+3,validEntitiesCounter );
+
+        //Read the connection entities and verify that they are correct
+
+//        int validConnectionCounter = 0;
+//        final InputStream connectionsInputStream = new FileInputStream( "connections1"+testFileName );
+//        try{
+//            ObjectMapper mapper = new ObjectMapper();
+//            JsonParser jp = new JsonFactory(  ).createParser( connectionsInputStream );
+//
+//            Iterator jsonIterator = mapper.readValues( jp, typeRef);
+//            while(jsonIterator.hasNext()){
+//                Object jsonConnection =  jsonIterator.next();
+//                if(( ( HashMap ) jsonConnection ).get( entity[1].getUuid().toString() )!=null){
+//                    Object jsonEntityConnection = ( ( HashMap ) jsonConnection ).get( entity[1].getUuid().toString() );
+//                    assertNotNull( ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ) );
+//
+//                    //String is stored in an array so we need to trim array fixings off the end of the string to compare.
+//                    String connectionUuid = ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ).toString();
+//                    connectionUuid=connectionUuid.substring( 1,connectionUuid.length()-1 );
+//                    if(connectionUuid.equals( entity[0].getUuid().toString() ))
+//                        validConnectionCounter++;
+//                }
+//                else if(( ( HashMap ) jsonConnection ).get( entity[0].getUuid().toString() )!=null){
+//                    Object jsonEntityConnection = ( ( HashMap ) jsonConnection ).get( entity[0].getUuid().toString());
+//                    assertNotNull( ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ) );
+//
+//                    String connectionUuid = ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ).toString();
+//                    connectionUuid=connectionUuid.substring( 1,connectionUuid.length()-1 );
+//
+//                    if(connectionUuid.equals( entity[1].getUuid().toString() ))
+//                        validConnectionCounter++;
+//                }
+//            }
+//        }finally{
+//            in.close();
+            File exportedFile = new File("connections1"+testFileName);
+            exportedFile.delete();
+//        }
+//
+//        assertEquals( "There should have been two valid connections in the file",2,validConnectionCounter );
+    }
+
+    @Test //Connections won't save when run with maven, but on local builds it will.
+    public void test1000EntitiesPerFile() throws Exception {
+
+        String testFileName ="testConnectionsOnApplicationEndpoint.json";
+
+        S3Export s3Export = new MockS3ExportImpl( testFileName );
+
+        ExportService exportService = setup.getExportService();
+
+        String appName = newOrgAppAdminRule.getApplicationInfo().getName();
+        HashMap<String, Object> payload = payloadBuilder( appName );
+
+        payload.put( "organizationId", organization.getUuid() );
+        payload.put( "applicationId", applicationId );
+
+        EntityManager em = setup.getEmf().getEntityManager( applicationId );
+
+        // intialize user object to be posted
+        Map<String, Object> userProperties = null;
+        Entity[] entity;
+        int numberOfEntitiesToBeWritten = 1100;
+        entity = new Entity[numberOfEntitiesToBeWritten];
+
+        // creates entities
+        for ( int i = 0; i < numberOfEntitiesToBeWritten; i++ ) {
+            userProperties = new LinkedHashMap<String, Object>();
+            userProperties.put( "username", "billybob" + i );
+            userProperties.put( "email", "test" + i + "@anuff.com" );
+            entity[i] = em.create( "users", userProperties );
+        }
+
+        setup.getEntityIndex().refresh( applicationId );
+
+        Thread.sleep( 1000 );
+
+        UUID exportUUID = exportService.schedule( payload );
+
+        //create and initialize jobData returned in JobExecution.
+        JobData jobData = jobDataCreator( payload, exportUUID, s3Export );
+
+        JobExecution jobExecution = mock( JobExecution.class );
+        when( jobExecution.getJobData() ).thenReturn( jobData );
+
+        exportService.doExport( jobExecution );
+
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
+
+        int validEntitiesCounter = 0;
+        final InputStream in = new FileInputStream( "entities1"+testFileName );
+        try{
+            ObjectMapper mapper = new ObjectMapper();
+            JsonParser jp = new JsonFactory(  ).createParser( in );
+
+
+            Iterator jsonIterator = mapper.readValues( jp, typeRef);
+            while(jsonIterator.hasNext()){
+                Object jsonEntity =  jsonIterator.next();
+                assertNotNull( ( ( HashMap ) jsonEntity ).get( "uuid" ));
+                validEntitiesCounter++;
+            }
+        }finally{
+            in.close();
+            File exportedFile = new File("entities1"+testFileName);
+            exportedFile.delete();
+            exportedFile = new File("entities2"+testFileName);
+            exportedFile.delete();
+        }
+
+        //need to add three to all verifies because of the three default roles.
+        assertEquals( "There should have been 1000 valid entities in the file",1000,validEntitiesCounter );
+
+        //Delete the created connection files
+        File exportedFile = new File("connections1"+testFileName);
+        exportedFile.delete();
+        exportedFile = new File("connections2"+testFileName);
+        exportedFile.delete();
+    }
+
+    @Test //Connections won't save when run with maven, but on local builds it will.
     public void testConnectionsOnApplicationEndpoint() throws Exception {
 
         String testFileName ="testConnectionsOnApplicationEndpoint.json";
-//        File f = null;
-//
-//        try {
-//            f = new File( testFileName );
-//        }
-//        catch ( Exception e ) {
-//            // consumed because this checks to see if the file exists.
-//            // If it doesn't then don't do anything and carry on.
-//        }
-//        f.deleteOnExit();
-
 
         S3Export s3Export = new MockS3ExportImpl( testFileName );
 
