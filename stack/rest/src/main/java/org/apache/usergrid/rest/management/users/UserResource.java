@@ -281,7 +281,7 @@ public class UserResource extends AbstractContextResource {
             }
 
             if ( !useReCaptcha() ) {
-                management.startAdminUserPasswordResetFlow( user );
+                management.startAdminUserPasswordResetFlow( null, user );
                 return handleViewable( "resetpw_email_success", this );
             }
 
@@ -292,7 +292,7 @@ public class UserResource extends AbstractContextResource {
                     reCaptcha.checkAnswer( httpServletRequest.getRemoteAddr(), challenge, uresponse );
 
             if ( reCaptchaResponse.isValid() ) {
-                management.startAdminUserPasswordResetFlow( user );
+                management.startAdminUserPasswordResetFlow( null, user );
                 return handleViewable( "resetpw_email_success", this );
             }
             else {
@@ -338,7 +338,7 @@ public class UserResource extends AbstractContextResource {
         }
 
         try {
-            management.handleActivationTokenForAdminUser( user.getUuid(), token );
+            management.handleActivationTokenForAdminUser( null, user.getUuid(), token );
             return handleViewable( "activate", this );
         }
         catch ( TokenException e ) {
@@ -367,7 +367,7 @@ public class UserResource extends AbstractContextResource {
         }
 
         try {
-            ActivationState state = management.handleConfirmationTokenForAdminUser( user.getUuid(), token );
+            ActivationState state = management.handleConfirmationTokenForAdminUser( null, user.getUuid(), token );
             if ( state == ActivationState.CONFIRMED_AWAITING_ACTIVATION ) {
                 return handleViewable( "confirm", this );
             }
@@ -403,7 +403,8 @@ public class UserResource extends AbstractContextResource {
 
         ApiResponse response = createApiResponse();
 
-        management.startAdminUserActivationFlow( user );
+        // TODO: currently pulling org from user, should it be pulled from URL?
+        management.startAdminUserActivationFlow( null, user );
 
         response.setAction( "reactivate user" );
         return new JSONWithPadding( response, callback );
