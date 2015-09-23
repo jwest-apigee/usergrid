@@ -34,24 +34,19 @@ import org.apache.usergrid.batch.JobExecution;
 import org.apache.usergrid.batch.service.SchedulerService;
 import org.apache.usergrid.management.ApplicationInfo;
 import org.apache.usergrid.management.ManagementService;
-import org.apache.usergrid.persistence.ConnectedEntityRef;
-import org.apache.usergrid.persistence.ConnectionRef;
 import org.apache.usergrid.persistence.Entity;
 import org.apache.usergrid.persistence.EntityManager;
 import org.apache.usergrid.persistence.EntityManagerFactory;
 import org.apache.usergrid.persistence.PagingResultsIterator;
-import org.apache.usergrid.persistence.Results;
-import org.apache.usergrid.persistence.SimpleEntityRef;
-import org.apache.usergrid.persistence.entities.Export;
-import org.apache.usergrid.persistence.entities.JobData;
 import org.apache.usergrid.persistence.Query;
 import org.apache.usergrid.persistence.Query.Level;
-import org.apache.usergrid.services.users.UsersService;
+import org.apache.usergrid.persistence.Results;
+import org.apache.usergrid.persistence.entities.Export;
+import org.apache.usergrid.persistence.entities.JobData;
 
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.BiMap;
@@ -561,19 +556,10 @@ public class ExportServiceImpl implements ExportService {
 
             Results results = em.getTargetEntities( entity,connectionType, null, Level.ALL_PROPERTIES );
             PagingResultsIterator connectionResults = new PagingResultsIterator( results );
-            int count = 0;
             for(Object c : connectionResults){
-                ConnectedEntityRef connectionRef = (ConnectedEntityRef) c;
+                Entity connectionRef = (Entity) c;
                 jg.writeObject( connectionRef.getUuid());
-                System.out.println("Currently on "+count++);
             }
-
-//            List<ConnectionRef> connections = results.getConnections();
-//
-//
-//            for ( ConnectionRef connectionRef : connectionResults. ) {
-//                jg.writeObject( connectionRef.getTargetRefs().getUuid() );
-//            }
 
             jg.writeEndArray();
         }
