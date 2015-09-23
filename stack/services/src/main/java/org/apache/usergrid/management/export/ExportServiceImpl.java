@@ -34,6 +34,7 @@ import org.apache.usergrid.batch.JobExecution;
 import org.apache.usergrid.batch.service.SchedulerService;
 import org.apache.usergrid.management.ApplicationInfo;
 import org.apache.usergrid.management.ManagementService;
+import org.apache.usergrid.persistence.ConnectedEntityRef;
 import org.apache.usergrid.persistence.ConnectionRef;
 import org.apache.usergrid.persistence.Entity;
 import org.apache.usergrid.persistence.EntityManager;
@@ -558,13 +559,21 @@ public class ExportServiceImpl implements ExportService {
             jg.writeFieldName( connectionType );
             jg.writeStartArray();
 
-            Results results = em.getTargetEntities( entity,connectionType, null, Level.IDS );
-
-            List<ConnectionRef> connections = results.getConnections();
-
-            for ( ConnectionRef connectionRef : connections ) {
-                jg.writeObject( connectionRef.getTargetRefs().getUuid() );
+            Results results = em.getTargetEntities( entity,connectionType, null, Level.ALL_PROPERTIES );
+            PagingResultsIterator connectionResults = new PagingResultsIterator( results );
+            int count = 0;
+            for(Object c : connectionResults){
+                ConnectedEntityRef connectionRef = (ConnectedEntityRef) c;
+                jg.writeObject( connectionRef.getUuid());
+                System.out.println("Currently on "+count++);
             }
+
+//            List<ConnectionRef> connections = results.getConnections();
+//
+//
+//            for ( ConnectionRef connectionRef : connectionResults. ) {
+//                jg.writeObject( connectionRef.getTargetRefs().getUuid() );
+//            }
 
             jg.writeEndArray();
         }

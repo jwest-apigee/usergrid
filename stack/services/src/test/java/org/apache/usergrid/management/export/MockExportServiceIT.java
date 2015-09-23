@@ -387,7 +387,7 @@ public class MockExportServiceIT extends AbstractServiceIT {
 
 
     @Test //Connections won't save when run with maven, but on local builds it will.
-    public void test2001EntitiesOnApplicationEndpoint() throws Exception {
+    public void test1000ConnectionsToSingleEntity() throws Exception {
 
         String testFileName ="testConnectionsOnApplicationEndpoint.json";
 
@@ -406,7 +406,7 @@ public class MockExportServiceIT extends AbstractServiceIT {
         // intialize user object to be posted
         Map<String, Object> userProperties = null;
         Entity[] entity;
-        int numberOfEntitiesToBeWritten = 999;
+        int numberOfEntitiesToBeWritten = 997;
         entity = new Entity[numberOfEntitiesToBeWritten];
 
         // creates entities
@@ -415,6 +415,11 @@ public class MockExportServiceIT extends AbstractServiceIT {
             userProperties.put( "username", "billybob" + i );
             userProperties.put( "email", "test" + i + "@anuff.com" );
             entity[i] = em.create( "users", userProperties );
+        }
+
+        for(int i = 1; i<numberOfEntitiesToBeWritten; i++){
+            em.createConnection( em.get( new SimpleEntityRef( "user", entity[0].getUuid() ) ), "testConnections",
+                em.get( new SimpleEntityRef( "user", entity[i].getUuid() ) ) );
         }
 
         setup.getEntityIndex().refresh( applicationId );
@@ -443,6 +448,9 @@ public class MockExportServiceIT extends AbstractServiceIT {
             Iterator jsonIterator = mapper.readValues( jp, typeRef);
             while(jsonIterator.hasNext()){
                 Object jsonEntity =  jsonIterator.next();
+                //Instead we could probably make a hashmap of the uuid of the entities then delete out of the map
+                //as we find it thus ensuring we have a. nothing in the hashmap ( meaning all entities found )
+                //and b. no other entities that we wouldn't expect ( exception is made for roles which are default )
                 assertNotNull( ( ( HashMap ) jsonEntity ).get( "uuid" ));
                 validEntitiesCounter++;
             }
@@ -453,47 +461,13 @@ public class MockExportServiceIT extends AbstractServiceIT {
         }
 
         //need to add three to all verifies because of the three default roles.
-        assertEquals( "There should have been "+(numberOfEntitiesToBeWritten+3)+" valid entities in the file",numberOfEntitiesToBeWritten+3,validEntitiesCounter );
+        assertEquals( "There should have been 1000 valid entities in the file",1000,validEntitiesCounter );
 
-        //Read the connection entities and verify that they are correct
-
-//        int validConnectionCounter = 0;
-//        final InputStream connectionsInputStream = new FileInputStream( "connections1"+testFileName );
-//        try{
-//            ObjectMapper mapper = new ObjectMapper();
-//            JsonParser jp = new JsonFactory(  ).createParser( connectionsInputStream );
-//
-//            Iterator jsonIterator = mapper.readValues( jp, typeRef);
-//            while(jsonIterator.hasNext()){
-//                Object jsonConnection =  jsonIterator.next();
-//                if(( ( HashMap ) jsonConnection ).get( entity[1].getUuid().toString() )!=null){
-//                    Object jsonEntityConnection = ( ( HashMap ) jsonConnection ).get( entity[1].getUuid().toString() );
-//                    assertNotNull( ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ) );
-//
-//                    //String is stored in an array so we need to trim array fixings off the end of the string to compare.
-//                    String connectionUuid = ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ).toString();
-//                    connectionUuid=connectionUuid.substring( 1,connectionUuid.length()-1 );
-//                    if(connectionUuid.equals( entity[0].getUuid().toString() ))
-//                        validConnectionCounter++;
-//                }
-//                else if(( ( HashMap ) jsonConnection ).get( entity[0].getUuid().toString() )!=null){
-//                    Object jsonEntityConnection = ( ( HashMap ) jsonConnection ).get( entity[0].getUuid().toString());
-//                    assertNotNull( ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ) );
-//
-//                    String connectionUuid = ( ( HashMap ) jsonEntityConnection ).get( "vibrations" ).toString();
-//                    connectionUuid=connectionUuid.substring( 1,connectionUuid.length()-1 );
-//
-//                    if(connectionUuid.equals( entity[1].getUuid().toString() ))
-//                        validConnectionCounter++;
-//                }
-//            }
-//        }finally{
-//            in.close();
-            File exportedFile = new File("connections1"+testFileName);
-            exportedFile.delete();
-//        }
-//
-//        assertEquals( "There should have been two valid connections in the file",2,validConnectionCounter );
+        //Delete the created connection files
+//        File exportedFile = new File("connections1"+testFileName);
+//        exportedFile.delete();
+//        exportedFile = new File("connections2"+testFileName);
+//        exportedFile.delete();
     }
 
     @Test //Connections won't save when run with maven, but on local builds it will.
@@ -516,7 +490,7 @@ public class MockExportServiceIT extends AbstractServiceIT {
         // intialize user object to be posted
         Map<String, Object> userProperties = null;
         Entity[] entity;
-        int numberOfEntitiesToBeWritten = 1100;
+        int numberOfEntitiesToBeWritten = 1000;
         entity = new Entity[numberOfEntitiesToBeWritten];
 
         // creates entities
