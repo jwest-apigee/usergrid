@@ -111,9 +111,6 @@ public class AwsS3ExportImpl implements S3Export {
         //Give Aws Sdk credentials so we can create the bucketname
         //if it doesn't already exist
         logger.debug("Check if bucketName already exists in s3");
-        //pretty much copy and paste AwsSdkS3BinaryStore
-        //seems like this might be the same step as just writing something so it shouldn't be an issue
-
 
         try {
             s3Client.createBucket( bucketName );
@@ -141,7 +138,6 @@ public class AwsS3ExportImpl implements S3Export {
             write( connectionsToExport, "connections" + index + filename, bucketName );
             index++;
         }
-
 
     }
 
@@ -172,6 +168,7 @@ public class AwsS3ExportImpl implements S3Export {
 
         }
         else { // bigger than 5mb... dump 5 mb tmp files and upload from them
+            logger.debug( "starting the multiput to aws for the file size: "+written+" bytes." );
             written = 0; //reset written to 0, we still haven't wrote anything in fact
             int partNumber = 1;
             int firstByte = 0;
@@ -189,15 +186,6 @@ public class AwsS3ExportImpl implements S3Export {
 
             // determine max size file allowed, default to 50mb
             long maxSizeBytes = 50 * FileUtils.ONE_MB;
-//            String maxSizeMbString = properties.getProperty( "usergrid.binary.max-size-mb", "50" );
-//            if ( StringUtils.isNumeric( maxSizeMbString )) {
-//                maxSizeBytes = Long.parseLong( maxSizeMbString ) * FileUtils.ONE_MB;
-//            }
-
-//            // always allow files up to 5mb
-//            if (maxSizeBytes < 5 * FileUtils.ONE_MB ) {
-//                maxSizeBytes = 5 * FileUtils.ONE_MB;
-//            }
 
             while (-1 != (firstByte = chunckableInputStream.read())) {
                 long partSize = 0;

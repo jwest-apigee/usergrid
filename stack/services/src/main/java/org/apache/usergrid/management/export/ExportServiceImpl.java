@@ -84,6 +84,7 @@ public class ExportServiceImpl implements ExportService {
 
     @Override
     public UUID schedule( final Map<String, Object> config ) throws Exception {
+        logger.debug( "Starting to schedule the export job" );
 
         if ( config == null ) {
             logger.error( "export information cannot be null" );
@@ -117,7 +118,6 @@ public class ExportServiceImpl implements ExportService {
 
         export.setState( Export.State.CREATED );
         em.update( export );
-
         //set data to be transferred to exportInfo
         JobData jobData = new JobData();
         jobData.setProperty( "exportInfo", config );
@@ -126,6 +126,7 @@ public class ExportServiceImpl implements ExportService {
         long soonestPossible = System.currentTimeMillis() + 250; //sch grace period
 
         //schedule job
+        logger.debug( "Creating the export job with the name: "+ EXPORT_JOB_NAME );
         sch.createJob( EXPORT_JOB_NAME, soonestPossible, jobData );
 
         //update state
@@ -151,6 +152,7 @@ public class ExportServiceImpl implements ExportService {
 
         EntityManager rootEm = emf.getEntityManager( emf.getManagementAppId() );
 
+        logger.debug( "Searching for export entity with the following uuid: "+ uuid.toString() );
         //retrieve the export entity.
         Export export = rootEm.get( uuid, Export.class );
 
@@ -206,6 +208,7 @@ public class ExportServiceImpl implements ExportService {
         Export export = em.get( exportId, Export.class );
 
         //update the entity state to show that the job has officially started.
+        logger.debug( "Starting export job with uuid: "+export.getUuid() );
         export.setState( Export.State.STARTED );
         em.update( export );
         try {
@@ -233,6 +236,7 @@ public class ExportServiceImpl implements ExportService {
         else if ( config.get( "applicationId" ) == null ) {
             //exports All the applications from an organization
             try {
+                logger.debug( "starting export of all application from the following org uuid: "+config.get( "organizationId" ).toString() );
                 exportApplicationsFromOrg( ( UUID ) config.get( "organizationId" ), config, jobExecution, s3Export );
             }
             catch ( Exception e ) {
@@ -245,8 +249,9 @@ public class ExportServiceImpl implements ExportService {
         else if ( config.get( "collectionName" ) == null ) {
             //exports an Application from a single organization
             try {
+                logger.debug( "Starting export of application: "+ config.get( "applicationId" ).toString());
                 exportApplicationFromOrg( ( UUID ) config.get( "organizationId" ),
-                        ( UUID ) config.get( "applicationId" ), config, jobExecution, s3Export );
+                    ( UUID ) config.get( "applicationId" ), config, jobExecution, s3Export );
             }
             catch ( Exception e ) {
                 export.setErrorMessage( e.getMessage() );
@@ -259,6 +264,7 @@ public class ExportServiceImpl implements ExportService {
             try {
                 //exports a single collection from an app org combo
                 try {
+                    logger.debug( "Starting export of the following application collection: "+ config.get( "collectionName" ));
                     exportCollectionFromOrgApp( ( UUID ) config.get( "applicationId" ), config, jobExecution,
                             s3Export );
                 }
@@ -277,6 +283,7 @@ public class ExportServiceImpl implements ExportService {
                 return;
             }
         }
+        logger.debug( "finished the export job." );
         export.setState( Export.State.FINISHED );
         em.update( export );
     }
