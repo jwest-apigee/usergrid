@@ -59,7 +59,6 @@ import com.google.common.util.concurrent.Service;
 
 import static org.apache.usergrid.TestHelper.newUUIDString;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -75,6 +74,8 @@ public class MockExportServiceIT extends AbstractServiceIT {
 
     @Rule
     public NewOrgAppAdminRule newOrgAppAdminRule = new NewOrgAppAdminRule( setup );
+
+
 
     // app-level data generated only once
     private UserInfo adminUser;
