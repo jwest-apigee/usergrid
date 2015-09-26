@@ -69,6 +69,11 @@ public class OrganizationConfig {
     private OrganizationConfig() {
     }
 
+    public OrganizationConfig(OrganizationConfigProps configFileProperties) {
+        setDefaultProperties(configFileProperties);
+        // will add id and name once default org exists
+    }
+
     public OrganizationConfig(OrganizationConfigProps configFileProperties, UUID id, String name) {
         setDefaultProperties(configFileProperties);
         this.id = id;

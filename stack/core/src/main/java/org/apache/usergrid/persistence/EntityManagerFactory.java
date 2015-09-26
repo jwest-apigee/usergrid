@@ -166,6 +166,8 @@ public interface EntityManagerFactory {
 
     public UUID getManagementAppId();
 
+    public UUID getManagementOrgId();
+
     public IndexRefreshCommand.IndexRefreshCommandInfo refreshIndex(UUID applicationId);
 
     /**

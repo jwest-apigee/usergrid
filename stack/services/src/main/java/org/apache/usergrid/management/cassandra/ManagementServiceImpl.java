@@ -3214,12 +3214,10 @@ public class ManagementServiceImpl implements ManagementService {
         if ( entity != null ) {
             Map entityProperties = em.getDictionaryAsMap(entity, ORGANIZATION_CONFIG_DICTIONARY);
             return new OrganizationConfig(orgConfigProperties, entity.getUuid(), entity.getName(), entityProperties);
-        } else {
-            // return the defaults
-            return new OrganizationConfig(orgConfigProperties)
         }
 
-        return null;
+        // return the defaults
+        return new OrganizationConfig(orgConfigProperties);
     }
 
 

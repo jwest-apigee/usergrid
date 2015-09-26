@@ -71,6 +71,7 @@ import org.apache.usergrid.persistence.model.entity.Id;
 import org.apache.usergrid.persistence.model.entity.SimpleId;
 import org.apache.usergrid.persistence.model.util.UUIDGenerator;
 import org.apache.usergrid.utils.UUIDUtils;
+import org.apache.usergrid.corepersistence.util.CpNamingUtils;
 
 import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
@@ -166,7 +167,7 @@ public class CpEntityManagerFactory implements EntityManagerFactory, Application
             if ( em.getApplication() == null ) {
                 logger.info("Creating management application");
                 Map mgmtAppProps = new HashMap<String, Object>();
-                mgmtAppProps.put(PROPERTY_NAME, "systemapp");
+                mgmtAppProps.put(PROPERTY_NAME, CassandraService.MANAGEMENT_APPLICATION);
                 em.create( getManagementAppId(), TYPE_APPLICATION, mgmtAppProps);
                 em.getApplication();
             }
@@ -448,7 +449,7 @@ public class CpEntityManagerFactory implements EntityManagerFactory, Application
 
     @Override
     public Map<String, UUID> getApplications() throws Exception {
-        return getApplications( CpNamingUtils.getEdgeTypeFromCollectionName( CpNamingUtils.APPLICATION_INFOS ) );
+        return getApplications(CpNamingUtils.getEdgeTypeFromCollectionName( CpNamingUtils.APPLICATION_INFOS ) );
     }
 
 
@@ -504,7 +505,7 @@ public class CpEntityManagerFactory implements EntityManagerFactory, Application
                             final String applicationName = ( String ) entityData.getField( PROPERTY_NAME ).getValue();
 
                             appMap.put( applicationName , applicationId );
-                        } ).toBlocking().last();
+                    } ).toBlocking().last();
     }
 
 
@@ -578,7 +579,7 @@ public class CpEntityManagerFactory implements EntityManagerFactory, Application
 
         // intentionally going only one-level deep into fields and treating all
         // values as strings because that is all we need for service properties
-        for ( String key : properties.keySet() ) {
+        for ( String key : properties.keySet()) {
             propsEntity.setProperty(key, properties.get(key).toString());
         }
 
@@ -666,6 +667,11 @@ public class CpEntityManagerFactory implements EntityManagerFactory, Application
     @Override
     public UUID getManagementAppId() {
         return CpNamingUtils.MANAGEMENT_APPLICATION_ID;
+    }
+
+    @Override
+    public UUID getManagementOrgId() {
+        return CpNamingUtils.MANAGEMENT_ORGANIZATION_ID;
     }
 
     @Override

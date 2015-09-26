@@ -16,6 +16,7 @@
 package org.apache.usergrid.corepersistence;
 
 
+import org.apache.usergrid.corepersistence.migration.*;
 import org.safehaus.guicyfig.GuicyFigModule;
 
 import org.apache.usergrid.corepersistence.asyncevents.AsyncEventService;
@@ -31,10 +32,6 @@ import org.apache.usergrid.corepersistence.index.IndexService;
 import org.apache.usergrid.corepersistence.index.IndexServiceImpl;
 import org.apache.usergrid.corepersistence.index.ReIndexService;
 import org.apache.usergrid.corepersistence.index.ReIndexServiceImpl;
-import org.apache.usergrid.corepersistence.migration.CoreMigration;
-import org.apache.usergrid.corepersistence.migration.CoreMigrationPlugin;
-import org.apache.usergrid.corepersistence.migration.DeDupConnectionDataMigration;
-import org.apache.usergrid.corepersistence.migration.MigrationModuleVersionPlugin;
 import org.apache.usergrid.corepersistence.pipeline.PipelineModule;
 import org.apache.usergrid.corepersistence.rx.impl.AllApplicationsObservable;
 import org.apache.usergrid.corepersistence.rx.impl.AllApplicationsObservableImpl;
@@ -131,6 +128,7 @@ public class CoreModule  extends AbstractModule {
 
 
         dataMigrationMultibinder.addBinding().to( DeDupConnectionDataMigration.class );
+        dataMigrationMultibinder.addBinding().to( ManagementOrganizationDataMigration.class );
 
 
         //wire up the collection migration plugin

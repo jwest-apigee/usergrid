@@ -21,6 +21,7 @@ package org.apache.usergrid.corepersistence.util;
 
 import java.util.UUID;
 
+import org.apache.usergrid.persistence.cassandra.CassandraService;
 import org.apache.usergrid.persistence.core.scope.ApplicationScope;
 import org.apache.usergrid.persistence.core.scope.ApplicationScopeImpl;
 import org.apache.usergrid.persistence.entities.Application;
@@ -65,8 +66,9 @@ public class CpNamingUtils {
      */
     private static final int EDGE_CONN_PREFIX_LENGTH = EDGE_CONN_PREFIX.length()+1;
 
-    /** App where we store management info */
+    /** App/org where we store management info */
     public static final UUID MANAGEMENT_APPLICATION_ID = UUID.fromString( "b6768a08-b5d5-11e3-a495-11ddb1de66c8" );
+    public static final UUID MANAGEMENT_ORGANIZATION_ID = UUID.fromString( "d090d165-7dd8-4132-8aa2-7e0ec5484c7f" );
 
     /**
      * Information about applications is stored in the management app using these types
@@ -103,7 +105,7 @@ public class CpNamingUtils {
      * @return
      */
     public static String getConnectionNameFromEdgeName(final String edgeName){
-        return edgeName.substring( EDGE_CONN_PREFIX_LENGTH );
+        return edgeName.substring(EDGE_CONN_PREFIX_LENGTH);
     }
 
     /**
@@ -121,7 +123,7 @@ public class CpNamingUtils {
        * @return
        */
       public static String getCollectionNameFromEdgeName(final String edgeName){
-          return edgeName.substring( EDGE_COLL_PREFIX_LENGTH );
+          return edgeName.substring(EDGE_COLL_PREFIX_LENGTH);
       }
 
 
@@ -177,7 +179,7 @@ public class CpNamingUtils {
      * TODO move sourceId to ApplicationScope
      */
     public static Edge createCollectionEdge( final Id sourceId, final String collectionName, final Id entityId ) {
-        final String edgeType = CpNamingUtils.getEdgeTypeFromCollectionName( collectionName );
+        final String edgeType = CpNamingUtils.getEdgeTypeFromCollectionName(collectionName);
 
 
         // create graph edge connection from head entity to member entity
@@ -270,12 +272,22 @@ public class CpNamingUtils {
 
 
     /**
+     * Generate an entity Id from the given UUID
+     *
+     * @param entityId the entity's UUID
+     */
+    protected static Id generateEntityId( UUID entityId ) {
+        return new SimpleId( entityId, Application.ENTITY_TYPE );
+    }
+
+
+    /**
      * Generate an applicationId from the given UUID
      *
      * @param applicationId the applicationId
      */
     public static Id generateApplicationId( UUID applicationId ) {
-        return new SimpleId( applicationId, Application.ENTITY_TYPE );
+        return generateEntityId( applicationId );
     }
 
 
@@ -283,7 +295,15 @@ public class CpNamingUtils {
      * Generate an application scope for the management application
      */
     public static Id getManagementApplicationId() {
-        return generateApplicationId( MANAGEMENT_APPLICATION_ID );
+        return generateEntityId(MANAGEMENT_APPLICATION_ID);
+    }
+
+
+    /**
+     * Generate an id for the management organization
+     */
+    public static Id getManagementOrganizationId() {
+        return generateEntityId(MANAGEMENT_ORGANIZATION_ID);
     }
 
 
