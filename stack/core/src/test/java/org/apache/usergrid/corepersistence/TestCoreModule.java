@@ -14,31 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.usergrid.persistence.core.future;
+
+package org.apache.usergrid.corepersistence;
 
 
-import rx.Observable;
-
-import java.util.concurrent.FutureTask;
+import org.apache.usergrid.persistence.core.guice.TestModule;
 
 
 /**
- * Future without the exception nastiness
+ * Test guice module for our core guice configuration
  */
-public class FutureObservable<T> {
+public class TestCoreModule extends TestModule {
 
-    private final FutureTask<T> future;
+    @Override
+    protected void configure() {
 
-
-    public FutureObservable(final T returnVal) {
-        future = new FutureTask<>( () -> returnVal );
-    }
-
-    public void done() {
-        future.run();
-    }
-
-    public Observable<T> observable() {
-        return  Observable.from(future);
+        install( new CoreModule() );
     }
 }

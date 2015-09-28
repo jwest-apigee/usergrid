@@ -24,7 +24,7 @@ import rx.Observable;
 /**
  *  Buffer index requests
  */
-public interface IndexBufferConsumer {
+public interface IndexProducer {
 
 
     /**
@@ -33,4 +33,5 @@ public interface IndexBufferConsumer {
      * @return
      */
     Observable<IndexOperationMessage>  put(IndexOperationMessage message);
+
 }

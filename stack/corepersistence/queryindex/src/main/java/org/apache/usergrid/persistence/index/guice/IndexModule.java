@@ -52,12 +52,12 @@ public abstract class IndexModule extends AbstractModule {
         bind(IndexCache.class).to(EsIndexCacheImpl.class);
         bind(IndexRefreshCommand.class).to(IndexRefreshCommandImpl.class);
 
-        bind(IndexBufferConsumer.class).to(EsIndexBufferConsumerImpl.class).asEagerSingleton();
+        bind(IndexProducer.class).to(EsIndexProducerImpl.class).asEagerSingleton();
 
 
         //wire up the edg migration. A no-op ATM, but retained for future development
-        Multibinder<DataMigration<ApplicationScope>> dataMigrationMultibinder =
-                Multibinder.newSetBinder( binder(), new TypeLiteral<DataMigration<ApplicationScope>>() {}, IndexMigration.class );
+        Multibinder<DataMigration> dataMigrationMultibinder =
+                Multibinder.newSetBinder( binder(), new TypeLiteral<DataMigration>() {}, IndexMigration.class );
 
 
 

@@ -41,7 +41,7 @@ public class EsEntityIndexBatchImpl implements EntityIndexBatch {
     private final IndexAlias alias;
 
     private final IndexLocationStrategy indexLocationStrategy;
-    private final IndexBufferConsumer indexBatchBufferProducer;
+    private final IndexProducer indexBatchBufferProducer;
 
     private final EntityIndex entityIndex;
     private final ApplicationScope applicationScope;
@@ -49,7 +49,7 @@ public class EsEntityIndexBatchImpl implements EntityIndexBatch {
 
 
     public EsEntityIndexBatchImpl( final IndexLocationStrategy locationStrategy,
-                                   final IndexBufferConsumer indexBatchBufferProducer,
+                                   final IndexProducer indexBatchBufferProducer,
                                    final EntityIndex entityIndex
     ) {
         this.indexLocationStrategy = locationStrategy;
@@ -123,10 +123,7 @@ public class EsEntityIndexBatchImpl implements EntityIndexBatch {
 
     @Override
     public Observable execute() {
-        IndexOperationMessage tempContainer = container;
-        container = new IndexOperationMessage();
-
-        return indexBatchBufferProducer.put( tempContainer );
+        return indexBatchBufferProducer.put( container );
     }
 
 
