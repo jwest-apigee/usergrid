@@ -74,7 +74,7 @@ public class ExportServiceImpl implements ExportService {
     //inject service manager to get connections
 
     //Maximum amount of entities retrieved in a single go.
-    public static final int MAX_ENTITY_FETCH = 1000;
+    public static final int MAX_ENTITY_FETCH = 250;
 
     //Amount of time that has passed before sending another heart beat in millis
     public static final int TIMESTAMP_DELTA = 5000;
@@ -364,6 +364,7 @@ public class ExportServiceImpl implements ExportService {
 
         }
         catch ( Exception e ) {
+            logger.error( e.getMessage(),e );
             export.setErrorMessage( e.getMessage() );
             export.setState( Export.State.FAILED );
             return;
@@ -588,7 +589,7 @@ public class ExportServiceImpl implements ExportService {
 
     protected JsonGenerator getJsonGenerator( OutputStream outputStream ) throws IOException {
         //TODO:shouldn't the below be UTF-16?
-
+        //TODO:do
         JsonGenerator jg = jsonFactory.createGenerator( outputStream,JsonEncoding.UTF16_LE );
         jg.setPrettyPrinter( new MinimalPrettyPrinter( "" ) );
         jg.setCodec( new ObjectMapper() );
@@ -631,6 +632,7 @@ public class ExportServiceImpl implements ExportService {
 
         //Could easily be converted to take in input streams. Just a harder refactor.
         List<File> entitiesToExport = new ArrayList<>(  );
+        //TODO:Add config to change path where this file is written.
         File entityFileToBeExported = new File( "tempEntityExportPart1");
         JsonGenerator jg = getJsonGenerator( entityFileToBeExported );
         entityFileToBeExported.deleteOnExit();
@@ -644,9 +646,9 @@ public class ExportServiceImpl implements ExportService {
 
         for ( String collectionName : metadata.keySet() ) {
 
-            if ( collectionName.equals( "exports" ) ) {
-                continue;
-            }
+//            if ( collectionName.equals( "exports" ) ) {
+//                continue;
+//            }
             //if the collection you are looping through doesn't match the name of the one you want. Don't export it.
             if ( ( config.get( "collectionName" ) == null ) || collectionName.equalsIgnoreCase((String)config.get( "collectionName" ) ) ) {
 
