@@ -108,17 +108,17 @@ Lets assume a base data set. That consists of the following entities and connect
 	
 	{"uuid":"A","type":"user","created":1,"modified":1,"username":"A","email":"A@test.com","Sex":"Female","metadata":{"size":350}}
 	
-	{"uuid":"B","type":"user","created":2,"modified":2,"username":"B","email":"test2@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"B","type":"user","created":2,"modified":2,"username":"B","email":"B@test.com","Sex":"Male","metadata":{"size":350}}
 	
-	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"test3","email":"test3@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"C","email":"C@test.com","Sex":"Male","metadata":{"size":350}}
 	
 ###File 2: entities1Office
 
-	{"uuid":"C","type":"user","created":1,"modified":1,"username":"test1","email":"test1@test.com","Sex":"Female","metadata":{"size":350}}
+	{"uuid":"D","type":"user","created":1,"modified":1,"username":"D","email":"D@test.com","Sex":"Female","metadata":{"size":350}}
 	
-	{"uuid":"D","type":"user","created":2,"modified":2,"username":"test2","email":"test2@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"E","type":"user","created":2,"modified":2,"username":"E","email":"E@test.com","Sex":"Famale","metadata":{"size":350}}
 	
-	{"uuid":"E","type":"cat","created":3,"modified":3,"username":"test3","email":"test3@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"F","type":"cat","created":3,"modified":3,"username":"F","email":"F@test.com","Sex":"Male","metadata":{"size":350}}
 	
 ###File 1: connections1Home
 	{"A":{
@@ -181,9 +181,9 @@ And it would still export all the data in that organization.
 	  }
 Since queries are applied to all collections (unless otherwise filtered) the query filter is applied to each collection. We get the following results. 
 ######Entities
-	{"uuid":"B","type":"user","created":2,"modified":2,"username":"test2","email":"test2@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"B","type":"user","created":2,"modified":2,"username":"B","email":"B@test.com","Sex":"Male","metadata":{"size":350}}
 	
-	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"test3","email":"test3@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"C","email":"C@test.com","Sex":"Male","metadata":{"size":350}}
 ######Connections
 	{"B":{
 	"likes":["C"],
@@ -211,7 +211,7 @@ Since queries are applied to all collections (unless otherwise filtered) the que
 Returns all cats who are male along with the connections that those cats made.
 ######Entities
 
-	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"test3","email":"test3@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"C","email":"C@test.com","Sex":"Male","metadata":{"size":350}}
 ######Connections
 	{"C":{
 	"hates":["A","B"]}
@@ -234,11 +234,11 @@ Returns all cats who are male along with the connections that those cats made.
 Will export all entities and only the connections that are named "hates".
 
 ######Entities
-	{"uuid":"A","type":"user","created":1,"modified":1,"username":"test1","email":"test1@test.com","Sex":"Female","metadata":{"size":350}}
+	{"uuid":"A","type":"user","created":1,"modified":1,"username":"A","email":"A@test.com","Sex":"Female","metadata":{"size":350}}
 	
-	{"uuid":"B","type":"user","created":2,"modified":2,"username":"test2","email":"test2@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"B","type":"user","created":2,"modified":2,"username":"B","email":"B@test.com","Sex":"Male","metadata":{"size":350}}
 	
-	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"test3","email":"test3@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"C","email":"C@test.com","Sex":"Male","metadata":{"size":350}}
 	
 ######Connections
 	{"A":{
