@@ -17,7 +17,11 @@
 package org.apache.usergrid.management.export;
 
 
+import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FilterWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -581,16 +585,9 @@ public class ExportServiceImpl implements ExportService {
     protected JsonGenerator getJsonGenerator( File ephermal ) throws IOException {
         //TODO:shouldn't the below be UTF-16?
 
-        JsonGenerator jg = jsonFactory.createGenerator( ephermal, JsonEncoding.UTF8 );
-        jg.setPrettyPrinter( new MinimalPrettyPrinter( "" ) );
-        jg.setCodec( new ObjectMapper() );
-        return jg;
-    }
-
-    protected JsonGenerator getJsonGenerator( OutputStream outputStream ) throws IOException {
-        //TODO:shouldn't the below be UTF-16?
-        //TODO:do
-        JsonGenerator jg = jsonFactory.createGenerator( outputStream,JsonEncoding.UTF16_LE );
+        FileOutputStream fileOutputStream = new FileOutputStream( ephermal );
+        OutputStream entityOutputStream = new BufferedOutputStream( fileOutputStream );
+        JsonGenerator jg = jsonFactory.createGenerator( entityOutputStream, JsonEncoding.UTF16_LE );
         jg.setPrettyPrinter( new MinimalPrettyPrinter( "" ) );
         jg.setCodec( new ObjectMapper() );
         return jg;
