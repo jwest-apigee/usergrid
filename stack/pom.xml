@@ -106,7 +106,6 @@
       <hector-test-version>1.1-4</hector-test-version>
       <jackson-version>1.9.9</jackson-version>
       <jackson-2-version>2.3.3</jackson-2-version>
-      <jclouds.version>1.9.0</jclouds.version>
       <jersey-version>1.19</jersey-version>
       <junit-version>4.12</junit-version>
       <log4j-version>1.2.16</log4j-version>
@@ -1229,93 +1228,9 @@
       </dependency>
 
       <dependency>
-        <groupId>org.apache.jclouds</groupId>
-        <artifactId>jclouds-blobstore</artifactId>
-        <version>${jclouds.version}</version>
-          <exclusions>
-              <!-- blows up our version of guice-->
-                          <exclusion>
-                              <groupId>com.google.inject.extensions</groupId>
-                              <artifactId>guice-assistedinject</artifactId>
-                          </exclusion>
-          </exclusions>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.jclouds</groupId>
-        <artifactId>jclouds-core</artifactId>
-        <version>${jclouds.version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>com.sun.jersey</groupId>
-            <artifactId>jersey-core</artifactId>
-          </exclusion>
-
-          <exclusion>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-          </exclusion>
-
-          <exclusion>
-            <groupId>aopalliance</groupId>
-            <artifactId>aopalliance</artifactId>
-          </exclusion>
-
-            <!-- if this is uncommented out sends our service tier into bootloop -->
-            <!-- blows up our version of guice-->
-            <!--<exclusion>-->
-                <!--<groupId>com.google.inject.extensions</groupId>-->
-                <!--<artifactId>guice-assistedinject</artifactId>-->
-            <!--</exclusion>-->
-        </exclusions>
-      </dependency>
-
-      <dependency>
         <groupId>aopalliance</groupId>
         <artifactId>aopalliance</artifactId>
         <version>1.0</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.jclouds</groupId>
-        <artifactId>jclouds-allblobstore</artifactId>
-        <version>${jclouds.version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.jclouds.driver</groupId>
-        <artifactId>jclouds-netty</artifactId>
-        <version>${jclouds.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.jclouds.driver</groupId>
-        <artifactId>jclouds-apachehc</artifactId>
-        <version>${jclouds.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.jclouds.driver</groupId>
-        <artifactId>jclouds-log4j</artifactId>
-        <version>${jclouds.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.jclouds.driver</groupId>
-        <artifactId>jclouds-slf4j</artifactId>
-        <version>${jclouds.version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-          </exclusion>
-        </exclusions>
       </dependency>
 
       <dependency>
@@ -1517,7 +1432,7 @@
             <configuration>
                 <excludes>
 
-                    <exclude>**/README.md</exclude>
+                    <exclude>**/**.md</exclude>
                     <exclude>**/CHANGES.txt</exclude>
                     <exclude>**/*.json</exclude>
                     <exclude>**/*.log</exclude>

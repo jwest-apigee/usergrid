@@ -646,9 +646,9 @@ public class ExportServiceImpl implements ExportService {
 
         for ( String collectionName : metadata.keySet() ) {
 
-//            if ( collectionName.equals( "exports" ) ) {
-//                continue;
-//            }
+            if ( collectionName.equals( "exports" ) ) {
+                continue;
+            }
             //if the collection you are looping through doesn't match the name of the one you want. Don't export it.
             if ( ( config.get( "collectionName" ) == null ) || collectionName.equalsIgnoreCase((String)config.get( "collectionName" ) ) ) {
 

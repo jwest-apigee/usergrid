@@ -19,17 +19,11 @@
 package org.apache.usergrid.services.guice;
 
 
-import org.apache.usergrid.corepersistence.CoreModule;
 import org.apache.usergrid.corepersistence.ServiceModule;
 import org.apache.usergrid.management.AppInfoMigrationPlugin;
-import org.apache.usergrid.persistence.EntityManagerFactory;
 import org.apache.usergrid.persistence.core.migration.data.MigrationPlugin;
-import org.apache.usergrid.services.ServiceManager;
-import org.apache.usergrid.services.ServiceManagerFactory;
-import org.apache.usergrid.services.queues.ImportQueueListener;
 
 import com.google.inject.AbstractModule;
-import com.google.inject.assistedinject.FactoryModuleBuilder;
 import com.google.inject.multibindings.Multibinder;
 
 

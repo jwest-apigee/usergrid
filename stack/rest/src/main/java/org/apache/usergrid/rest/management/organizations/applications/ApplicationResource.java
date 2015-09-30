@@ -17,12 +17,37 @@
 package org.apache.usergrid.rest.management.organizations.applications;
 
 
-import com.google.common.base.Preconditions;
-import com.sun.jersey.api.json.JSONWithPadding;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
+
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
+
 import org.apache.amber.oauth2.common.exception.OAuthSystemException;
 import org.apache.amber.oauth2.common.message.OAuthResponse;
 import org.apache.commons.lang.NullArgumentException;
 import org.apache.commons.lang.StringUtils;
+
 import org.apache.usergrid.management.ApplicationInfo;
 import org.apache.usergrid.management.OrganizationInfo;
 import org.apache.usergrid.management.export.ExportService;
@@ -32,30 +57,21 @@ import org.apache.usergrid.persistence.queue.impl.UsergridAwsCredentials;
 import org.apache.usergrid.rest.AbstractContextResource;
 import org.apache.usergrid.rest.ApiResponse;
 import org.apache.usergrid.rest.applications.ServiceResource;
-import org.apache.usergrid.rest.management.organizations.applications.imports.ImportsResource;
 import org.apache.usergrid.rest.security.annotations.RequireOrganizationAccess;
 import org.apache.usergrid.rest.utils.JSONPUtils;
 import org.apache.usergrid.security.oauth.ClientCredentialsInfo;
 import org.apache.usergrid.security.providers.SignInAsProvider;
 import org.apache.usergrid.security.providers.SignInProviderFactory;
 import org.apache.usergrid.services.ServiceManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
 
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
+import com.google.common.base.Preconditions;
+import com.sun.jersey.api.json.JSONWithPadding;
 
-import static javax.servlet.http.HttpServletResponse.*;
+import static javax.servlet.http.HttpServletResponse.SC_ACCEPTED;
+import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
+import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 
@@ -399,17 +415,6 @@ public class ApplicationResource extends AbstractContextResource {
         }
 
         return Response.status( SC_ACCEPTED ).entity( uuidRet ).build();
-    }
-
-
-    @Path( "imports" )
-    @RequireOrganizationAccess
-    public ImportsResource importGetJson( @Context UriInfo ui,
-                                          @QueryParam( "callback" ) @DefaultValue( "" ) String callback )
-        throws Exception {
-
-
-        return getSubResource( ImportsResource.class ).init( organization, application );
     }
 
     @GET

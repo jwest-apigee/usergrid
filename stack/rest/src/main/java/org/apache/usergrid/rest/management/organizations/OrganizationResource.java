@@ -17,21 +17,38 @@
 package org.apache.usergrid.rest.management.organizations;
 
 
-import com.sun.jersey.api.json.JSONWithPadding;
-import com.sun.jersey.api.view.Viewable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
+
 import org.apache.amber.oauth2.common.exception.OAuthSystemException;
 import org.apache.commons.lang.NullArgumentException;
 
-import org.apache.usergrid.corepersistence.util.CpNamingUtils;
 import org.apache.usergrid.management.ActivationState;
 import org.apache.usergrid.management.OrganizationConfig;
 import org.apache.usergrid.management.OrganizationInfo;
 import org.apache.usergrid.management.export.ExportService;
-import org.apache.usergrid.management.importer.ImportService;
-import org.apache.usergrid.persistence.EntityRef;
-import org.apache.usergrid.persistence.SimpleEntityRef;
 import org.apache.usergrid.persistence.entities.Export;
-import org.apache.usergrid.persistence.entities.Import;
 import org.apache.usergrid.persistence.queue.impl.UsergridAwsCredentials;
 import org.apache.usergrid.rest.AbstractContextResource;
 import org.apache.usergrid.rest.ApiResponse;
@@ -45,27 +62,15 @@ import org.apache.usergrid.rest.utils.JSONPUtils;
 import org.apache.usergrid.security.oauth.ClientCredentialsInfo;
 import org.apache.usergrid.security.tokens.exceptions.TokenException;
 import org.apache.usergrid.services.ServiceResults;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
 
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
+import com.sun.jersey.api.json.JSONWithPadding;
+import com.sun.jersey.api.view.Viewable;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static javax.servlet.http.HttpServletResponse.*;
+import static javax.servlet.http.HttpServletResponse.SC_ACCEPTED;
+import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
+import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import org.apache.usergrid.persistence.Entity;
-import org.apache.usergrid.persistence.Query.Level;
 
 
 @Component("org.apache.usergrid.rest.management.organizations.OrganizationResource")

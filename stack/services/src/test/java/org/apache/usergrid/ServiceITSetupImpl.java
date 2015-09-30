@@ -18,9 +18,8 @@ package org.apache.usergrid;
 
 
 import java.util.Properties;
+import java.util.UUID;
 
-import org.apache.usergrid.corepersistence.GuiceFactory;
-import org.apache.usergrid.management.AppInfoMigrationPlugin;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
@@ -28,22 +27,15 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.shiro.SecurityUtils;
 
+import org.apache.usergrid.corepersistence.GuiceFactory;
+import org.apache.usergrid.management.AppInfoMigrationPlugin;
 import org.apache.usergrid.management.ApplicationCreator;
 import org.apache.usergrid.management.ManagementService;
 import org.apache.usergrid.management.export.ExportService;
-import org.apache.usergrid.management.importer.ImportService;
 import org.apache.usergrid.persistence.cassandra.CassandraService;
 import org.apache.usergrid.security.providers.SignInProviderFactory;
 import org.apache.usergrid.security.tokens.TokenService;
 import org.apache.usergrid.services.ServiceManagerFactory;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.config.PropertiesFactoryBean;
-
-import java.util.Properties;
-import java.util.UUID;
 
 
 /** A {@link org.junit.rules.TestRule} that sets up services. */
@@ -57,7 +49,6 @@ public class ServiceITSetupImpl extends CoreITSetupImpl implements ServiceITSetu
     private SignInProviderFactory providerFactory;
     private Properties properties;
     private ExportService exportService;
-    private ImportService importService;
     private AppInfoMigrationPlugin appInfoMigrationPlugin;
 
 
@@ -71,7 +62,6 @@ public class ServiceITSetupImpl extends CoreITSetupImpl implements ServiceITSetu
         properties =         springResource.getBean( "properties", Properties.class );
         smf =                springResource.getBean( ServiceManagerFactory.class );
         exportService =      springResource.getBean( ExportService.class );
-        importService =      springResource.getBean( ImportService.class );
 
         try {
             appInfoMigrationPlugin = springResource.getBean(GuiceFactory.class)
@@ -127,10 +117,6 @@ public class ServiceITSetupImpl extends CoreITSetupImpl implements ServiceITSetu
 
     @Override
     public ExportService getExportService() { return exportService; }
-
-    @Override
-    public ImportService getImportService() { return importService; }
-
 
     public ServiceManagerFactory getSmf() {
         if ( smf == null ) {
