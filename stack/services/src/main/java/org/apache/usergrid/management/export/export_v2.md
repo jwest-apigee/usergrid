@@ -104,7 +104,8 @@ Lets assume a base data set. That consists of the following entities and connect
 
 	{"uuid":"0c0bfc38-6610-11e5-95fd-8eb055b4b9ec","type":"role","name":"admin","roleName":"admin","inactivity":0,"created":1443465481229,"modified":1443465481229,"title":"Administrator","metadata":{"size":389}}
 	-->
-###File 1: entities1Home
+###File 1: entities1Home.json
+Application Name:Home
 	
 	{"uuid":"A","type":"user","created":1,"modified":1,"username":"A","email":"A@test.com","Sex":"Female","metadata":{"size":350}}
 	
@@ -112,13 +113,14 @@ Lets assume a base data set. That consists of the following entities and connect
 	
 	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"C","email":"C@test.com","Sex":"Male","metadata":{"size":350}}
 	
-###File 2: entities1Office
+###File 2: entities1Office.json
+Application Name:Office
 
-	{"uuid":"D","type":"user","created":1,"modified":1,"username":"D","email":"D@test.com","Sex":"Female","metadata":{"size":350}}
+	{"uuid":"D","type":"mangement","created":1,"modified":1,"username":"D","email":"D@test.com","Sex":"Female","metadata":{"size":350}}
 	
-	{"uuid":"E","type":"user","created":2,"modified":2,"username":"E","email":"E@test.com","Sex":"Famale","metadata":{"size":350}}
+	{"uuid":"E","type":"worker","created":2,"modified":2,"username":"E","email":"E@test.com","Sex":"Female","metadata":{"size":350}}
 	
-	{"uuid":"F","type":"cat","created":3,"modified":3,"username":"F","email":"F@test.com","Sex":"Male","metadata":{"size":350}}
+	{"uuid":"F","type":"worker","created":3,"modified":3,"username":"F","email":"F@test.com","Sex":"Male","metadata":{"size":350}}
 	
 ###File 1: connections1Home
 	{"A":{
@@ -133,6 +135,15 @@ Lets assume a base data set. That consists of the following entities and connect
 	"hates":["A","B"]}
 
 ###File 2: connections1Office
+	{"D":{
+	"manages":["E","F"]}
+	
+	{"E":{
+	"likes":["F"],
+	"hates":["D"]}}
+	
+	{"F":{
+	"indifferent":["D","E"]}
 	
 ###What curl calls would export
 	curl -X POST -i -H 'Authorization: Bearer <your admin token goes here>' 'http://localhost:8080/management/orgs/<org_name>/apps/<app_name>/export' -d 
@@ -174,12 +185,12 @@ And it would still export all the data in that organization.
 	  },
 	  "filters":{
 	    "ql":"select * where sex = "Male"",
-	  	"apps":[],
+	  	"apps":["home"],
 	  	"collections":[],
 	  	"connections":[]
 	  }
 	  }
-Since queries are applied to all collections (unless otherwise filtered) the query filter is applied to each collection. We get the following results. 
+Since queries are applied to all collections (unless otherwise filtered) the query filter is applied to each collection. Also we disregard all office information because we're only looking at the home application. We get the following results. 
 ######Entities
 	{"uuid":"B","type":"user","created":2,"modified":2,"username":"B","email":"B@test.com","Sex":"Male","metadata":{"size":350}}
 	
@@ -202,7 +213,7 @@ Since queries are applied to all collections (unless otherwise filtered) the que
 			"bucket_location":"<name_of_s3_bucket>" }
 	  },
 	  "filters":{
-	  	"apps":[],
+	  	"apps":["home"],
 	  	"collections":["cats"],
 	  	"ql":"select * where sex = "Male"",
 	  	"connections":[]
@@ -228,19 +239,27 @@ Returns all cats who are male along with the connections that those cats made.
 	  "filters":{
 	  	"apps":[],
 	  	"collections":[],
-	  	"connections":["hates"]
+	  	"connections":["hates","manages"]
 	  }
 	  }
-Will export all entities and only the connections that are named "hates".
+Will export all entities and only the connections that are named "hates" and "manages".
 
-######Entities
+#####Entities
+######File 1: entities1Home.json
 	{"uuid":"A","type":"user","created":1,"modified":1,"username":"A","email":"A@test.com","Sex":"Female","metadata":{"size":350}}
 	
 	{"uuid":"B","type":"user","created":2,"modified":2,"username":"B","email":"B@test.com","Sex":"Male","metadata":{"size":350}}
 	
 	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"C","email":"C@test.com","Sex":"Male","metadata":{"size":350}}
+
+######File 2: entities1Office.json
+		{"uuid":"D","type":"mangement","created":1,"modified":1,"username":"D","email":"D@test.com","Sex":"Female","metadata":{"size":350}}
 	
-######Connections
+	{"uuid":"E","type":"worker","created":2,"modified":2,"username":"E","email":"E@test.com","Sex":"Female","metadata":{"size":350}}
+	
+	{"uuid":"F","type":"worker","created":3,"modified":3,"username":"F","email":"F@test.com","Sex":"Male","metadata":{"size":350}}
+#####Connections
+######File 1: connections1Home.json
 	{"A":{
 	"hates":["C"]}}
 	
@@ -249,6 +268,12 @@ Will export all entities and only the connections that are named "hates".
 	
 	{"C":{
 	"hates":["A","B"]}
+######File 2: connections1Office.json
+	{"D":{
+	"manages":["E","F"]}
+	
+	{"E":{
+	"hates":["D"]}}
 ---
 	
 	curl -X POST -i -H 'Authorization: Bearer <your admin token goes here>' 'http://localhost:8080/management/orgs/<org_name>/export' -d 
@@ -260,12 +285,26 @@ Will export all entities and only the connections that are named "hates".
 			"bucket_location":"<name_of_s3_bucket>" }
 	  },
 	  "filters":{
-	  	"apps":[""],
-	  	"collections":[],
+	    "ql":"select * where email = C@test.com"
+	  	"apps":["home"],
+	  	"collections":["cats","users"],
 	  	"connections":["hates"]
 	  }
 	  }
+	  
+#####Entities
+######File 1: entities1Home.json
+	{"uuid":"C","type":"cat","created":3,"modified":3,"username":"C","email":"C@test.com","Sex":"Male","metadata":{"size":350}}
+######File 2: connections1Home.json
+	{"C":{
+	"hates":["A","B"]}
+
+With the above example you need to be careful if you are importing because you wouldn't have the entity data for what C is connected to. Export doesn't currently safeguard against cases such as these as it follows what you asked for. 
 	
+	
+	
+##Ok thats great but how does it work under the hood?
+
 ##Improvements
 Need to add s3 permission failures. I.E fail fast without having to iterator over everything for every single call.
 
