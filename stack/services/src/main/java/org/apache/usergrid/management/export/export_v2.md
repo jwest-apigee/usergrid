@@ -314,6 +314,67 @@ After a curl call is sent we hit the rest tier which then in turn validates the 
 			- Entity
 				- Dictionaries
 				- Connections  
+				
+Starting from the top in psudeo code
+
+	In the context of the current organization
+		Create list of files that will contain all the exported entity files.
+		Create list of files that will contain all of the exported connection files. 
+		
+		Retrieve only the applications that have been specified in the filter 
+		Otherwise retrieve a list of all the applications in the organization
+		For each application
+			Create a new file that the application entity data will be written to.
+			Set file to delete after jvm exits.
+			Add file to the list of entity files.
+			
+			Create a new file that the application connection data will be written to. 
+			Set file to delete after jvm exits.
+			Add file to list of connection files.
+			
+			Create a counter that will allow you to track how many entities are being written to the entity data.
+			Create a counter that will notifiy you how many different file parts there are for this export. 
+			Retrieve the filtered list of collections that need to be exported.
+			If the filtered list if empty or nonexistant then return all collections
+			
+			For each collection
+				Check the filter to see if you have a query filter.
+				If you do have a query filter then create a new query object set it with the query in the query filter.
+				If you don't have a query filter or it is empty then set a empty Query object.
+				
+				Pull entity data from the collection 250 entities at a time.
+				For each entity
+					Write entity to entity file. 
+					Write entity dictionaries to entity file (Should probably be included in entity.)
+					Write entity connection to connection file. 
+					Increment entity counter.
+					If counter % 1000 == 0
+						Increment fileParts counter.
+						Create new File to store additional entities in.
+						Switch to write all data to the new file.
+						Set file to delete after jvm exits.
+						
+						Create new File to store additional connections in.
+						Switch to write all connection data to the new file.
+						Set file to delete after jvm exists. 
+		
+		Create a HashMap
+		Put the list of entity files into the hashmap
+		Put the list of connection files into the hashmap.
+		Return the hashmap.
+
+The actual mechanism through which it writes to the file is through a Json Generator using minimal pretty printing and the json lines format. The only case where this might currently mess up is using dictionaries as it would mean that there are two json entities per line instead of one. 
+
+###How specifically does it pull data out of Usergrid?
+In code we have the following lines 
+
+	Results entities = em.searchCollection( em.getApplicationRef(), collectionName, query );
+	PagingResultsIterator itr = new PagingResultsIterator( entities );
+
+These two lines take an application and search for a specific collection within the application and apply a query to each collection. 
+
+If the query is empty/null (need to apply the fix where queries can be null, currently they are always initialized) or if the query is "select *" then we go and search through the graph database for each entity. If the query is more sophisticated then we query elasticsearch for all relevant entity information.  (Maybe a useful feature would be to perform a reindexing operation on each collection we wish to export. ) This would work exactly the same way a generic query performed at the rest tier would access the data. 
+
 
 ##Improvements
 Need to add s3 permission failures. I.E fail fast without having to iterator over everything for every single call.
