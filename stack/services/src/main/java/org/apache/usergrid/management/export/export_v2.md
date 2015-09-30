@@ -300,10 +300,20 @@ Will export all entities and only the connections that are named "hates" and "ma
 	"hates":["A","B"]}
 
 With the above example you need to be careful if you are importing because you wouldn't have the entity data for what C is connected to. Export doesn't currently safeguard against cases such as these as it follows what you asked for. 
+
+Need to make sure we only search between a single org. I guess with the new endpoint since its only one we don't need to worry about that because it will only ever be in an org scope. 
 	
 	
 	
 ##Ok thats great but how does it work under the hood?
+After a curl call is sent we hit the rest tier which then in turn validates the information for a fail fast integration. Once we verify that the information is correct and has the permissions to upload to s3 (I guess we could error check filters too) we go to the service tier and schedule the job. Once the job is ready to be run we then head back and export information in the following order
+
+- Organization
+	- Application
+		- Collections
+			- Entity
+				- Dictionaries
+				- Connections  
 
 ##Improvements
 Need to add s3 permission failures. I.E fail fast without having to iterator over everything for every single call.
