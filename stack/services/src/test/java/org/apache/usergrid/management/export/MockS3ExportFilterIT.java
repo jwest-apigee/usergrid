@@ -221,7 +221,7 @@ public class MockS3ExportFilterIT extends AbstractServiceIT {
         return payload;
     }
 
-    public HashMap<String, Object> targetBuilder() {
+    public Map<String, Object> targetBuilder() {
         HashMap<String, Object> payload = new HashMap<String, Object>();
         Map<String, Object> target = new HashMap<String, Object>();
         Map<String, Object> storage_info = new HashMap<String, Object>();
@@ -237,30 +237,46 @@ public class MockS3ExportFilterIT extends AbstractServiceIT {
     }
 
 
-    public HashMap<String, Object> filterBuilder(Query query,Set<String> applicationNames,Set<String> collectionNames,
+    public Map filterBuilder(Query query,Set<String> applicationNames,Set<String> collectionNames,
                                                 Set<String> connectionNames){
         Map<String, Object> filters = new HashMap<>();
         if(query != null)
             filters.put( "ql", query.toString());
 
         if(applicationNames != null) {
+            ArrayList<String> appNameList = new ArrayList<>(  );
             for ( String appName : applicationNames ) {
-                filters.put( "apps", < put array of garbage here>)
+                appNameList.add( appName );
             }
+            filters.put( "apps", appNameList);
         }
         if(collectionNames != null) {
+            ArrayList<String> collectionNamesList = new ArrayList<>(  );
             for ( String colName : collectionNames ) {
-                filters.put( "collections", < put array of garbage here>)
+                collectionNamesList.add( colName );
             }
+            filters.put( "collections",collectionNamesList);
         }
         if(connectionNames != null) {
-            for ( String  connectionNames  : connectionNames ) {
-                filters.put( "connections", < put array of garbage here>)
+            ArrayList<String> connectionNamesList = new ArrayList<>(  );
+            for ( String  connectName  : connectionNames ) {
+                connectionNamesList.add( connectName );
             }
+            filters.put( "connections", connectionNamesList);
+
         }
 
-        return 
+        return filters;
 
+    }
+
+    public Map payloadBuilder(Query query,Set<String> applicationNames,Set<String> collectionNames,
+                              Set<String> connectionNames){
+        Map target = targetBuilder();
+        Map filter = filterBuilder(query,applicationNames,collectionNames,connectionNames);
+
+
+        
 
     }
 
