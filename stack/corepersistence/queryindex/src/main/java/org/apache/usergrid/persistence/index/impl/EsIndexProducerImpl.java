@@ -19,6 +19,7 @@ package org.apache.usergrid.persistence.index.impl;
 
 
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.codahale.metrics.Histogram;
@@ -40,6 +41,7 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 
 import rx.Observable;
+import rx.functions.Func1;
 
 
 /**
@@ -128,6 +130,7 @@ public class EsIndexProducerImpl implements IndexProducer {
                 }))
                 //write them
             .doOnNext(bulkRequestBuilder -> sendRequest(bulkRequestBuilder));
+          //  .retryWhen( new RetryWithDelay( 250,1000 ) );
 
 
         //now that we've processed them all, ack the futures after our last batch comes through
@@ -147,6 +150,38 @@ public class EsIndexProducerImpl implements IndexProducer {
         });
     }
 
+    //stolen shamelessly from http://stackoverflow.com/questions/22066481/rxjava-can-i-use-retry-but-with-delay?rq=1
+    public class RetryWithDelay implements Func1<Observable<? extends Throwable>, Observable<?>> {
+
+        private final int maxRetries;
+        private final int retryDelayMillis;
+        private int retryCount;
+
+        public RetryWithDelay(final int maxRetries, final int retryDelayMillis) {
+            this.maxRetries = maxRetries;
+            this.retryDelayMillis = retryDelayMillis;
+            this.retryCount = 0;
+        }
+
+        @Override
+        public Observable<?> call(Observable<? extends Throwable> attempts) {
+            return attempts
+                .flatMap(new Func1<Throwable, Observable<?>>() {
+                    @Override
+                    public Observable<?> call(Throwable throwable) {
+                        if (++retryCount < maxRetries) {
+                            // When this Observable calls onNext, the original
+                            // Observable will be retried (i.e. re-subscribed).
+                            return Observable.timer(retryDelayMillis,
+                                TimeUnit.MILLISECONDS);
+                        }
+
+                        // Max retries hit. Just pass the error along.
+                        return Observable.error(throwable);
+                    }
+                });
+        }
+    }
 
     /*
 
@@ -198,9 +233,23 @@ public class EsIndexProducerImpl implements IndexProducer {
                 log.error( "Unable to index id={}, type={}, index={}, failureMessage={} ", response.getId(),
                     response.getType(), response.getIndex(), response.getFailureMessage() );
 
-                error = true;
+                //too many requests error and we're overloading es.
+                if(response.getFailure().getStatus().getStatus() == 429){
+                    log.error("Overloading ES, going to retry.");
+                                       // System.out.println("retrying");
+                         try {
+                             Thread.sleep( 800 );
+                         }
+                         catch ( InterruptedException e ) {
+                             e.printStackTrace();
+                         }
+                         sendRequest( bulkRequest );
+                                }
+               // else {
+                    error = true;
 
-                errorString.append( response.getFailureMessage() ).append( "\n" );
+                    errorString.append( response.getFailureMessage() ).append( "\n" );
+               // }
             }
         }
 

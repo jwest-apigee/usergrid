@@ -226,19 +226,22 @@ public class AmazonAsyncEventService implements AsyncEventService {
 
     }
 
-
+///TODO: Document what this does. And document what the tmobile build does. Then compare the two.
     private Observable<IndexEventResult> handleMessages( final List<QueueMessage> messages ) {
         if (logger.isDebugEnabled()) {
             logger.debug("handleMessages with {} message", messages.size());
         }
 
         Observable<IndexEventResult> masterObservable = Observable.from(messages).flatMap(message -> {
+            //Get the meat of the message.
             final AsyncEvent event = (AsyncEvent) message.getBody();
 
             logger.debug("Processing {} event", event);
 
+            //if the event is null then return nothing.
             if (event == null) {
                 logger.error("AsyncEvent type or event is null!");
+                //Emit a single index event result that contains the message that is empty.
                 return Observable.just(new IndexEventResult(message, Optional.<IndexOperationMessage>absent(), false));
             }
             try {
@@ -269,13 +272,14 @@ public class AmazonAsyncEventService implements AsyncEventService {
         });
 
         return masterObservable
-            //remove unsuccessful
+            //remove unsuccessful events //grab only successful events that are present.
             .filter( indexEventResult -> indexEventResult.success() && indexEventResult.getIndexOperationMessage()
                                                                                        .isPresent() )
             //take the max
             .buffer( MAX_TAKE )
             //map them to index results and return them
             .flatMap( indexEventResults -> {
+
                 IndexOperationMessage combined = new IndexOperationMessage();
                 indexEventResults.stream().forEach(
                     indexEventResult -> combined.ingest( indexEventResult.getIndexOperationMessage().get() ) );
