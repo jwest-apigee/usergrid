@@ -4,9 +4,11 @@ Defines how the future iterated export handles what gets exported.
 ##Endpoints
 Endpoints are the same as export v1.
 
+<!--
+Not needed because the filters handle what we want exported and what application it should be looking at. Not the endpoints. 
 ` POST /management/orgs/<org_name>/apps/<app_name>/collection/<collection_name>/export `
 
-` POST /management/orgs/<org_name>/apps/<app_name>/export `
+` POST /management/orgs/<org_name>/apps/<app_name>/export `-->
 
 ` POST /management/orgs/<org_name>/export`
 
@@ -15,7 +17,7 @@ Endpoints are the same as export v1.
 
 ##What payload to the post endpoints take?
 
-	curl -X POST -i -H 'Authorization: Bearer <your admin token goes here>' 'http://localhost:8080/management/orgs/<org_name>/apps/<app_name>/export' -d
+	curl -X POST -i -H 'Authorization: Bearer <your admin token goes here>' 'http://localhost:8080/management/orgs/<org_name>/export' -d
 	'{"target":{
 		"storage_provider":"s3",
 		"storage_info":{
@@ -50,6 +52,9 @@ There are 4 ways that you can filter data out by.
 - Connections
 	- In order to export specific connections you can list them same as the other filters. If this is filled in then you are only exporting the connections that contain the names listed in the connections json array.
 	- If you want to export all the connections then delete the filter and it will export all the connections.
+	
+####What happens if my data is invalid?
+If you try to export data that doesn't exist in your filter then the call will fail and you will get returned a list of the data that is invalid. 
 
 ##Data Format for export
 

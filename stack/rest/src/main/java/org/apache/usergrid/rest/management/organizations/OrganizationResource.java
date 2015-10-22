@@ -326,6 +326,7 @@ public class OrganizationResource extends AbstractContextResource {
                 throw new NullArgumentException( "Could not find field 's3_key'" );
             }
 
+            //organizationid is added after the fact so that
             json.put( "organizationId",organization.getUuid());
 
             jobUUID = exportService.schedule( json );

@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import javax.management.RuntimeErrorException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,6 +74,10 @@ public class ExportServiceImpl implements ExportService {
     //injected the Entity Manager Factory to access entity manager
     protected EntityManagerFactory emf;
 
+    //EntityManager that will only be used for the management application and updating export entities
+    protected EntityManager em;
+
+
     //inject Management Service to access Organization Data
     private ManagementService managementService;
 
@@ -84,6 +90,10 @@ public class ExportServiceImpl implements ExportService {
     public static final int TIMESTAMP_DELTA = 5000;
 
     private JsonFactory jsonFactory = new JsonFactory();
+
+    public ExportServiceImpl(){
+        em = emf.getEntityManager( emf.getManagementAppId() );
+    }
 
 
     @Override
@@ -195,101 +205,123 @@ public class ExportServiceImpl implements ExportService {
     }
 
 
+    //This flow that is detailed
+    //The responsibilities of this method is to error check the configuration that is passed to us in job execution
+    //Then it also delegates to the correct type of export.
+
+    //Seperate into two methods, one for error checking and the other for checking the filters?
+
+    //what should this method do? It should handle the flow of export. Aka by looking at this method we should be able to see
+    //the different steps that we need to take in order to do a export.
+
+    //Extract the job data
+    //Determine
     @Override
     public void doExport( final JobExecution jobExecution ) throws Exception {
-        Map<String, Object> config = ( Map<String, Object> ) jobExecution.getJobData().getProperty( "exportInfo" );
-        Object s3PlaceHolder = jobExecution.getJobData().getProperty( "s3Export" );
-        S3Export s3Export = null;
 
+        final JobData jobData = jobExecution.getJobData();
+
+        Map<String, Object> config = ( Map<String, Object> ) jobData.getProperty( "exportInfo" );
         if ( config == null ) {
             logger.error( "Export Information passed through is null" );
             return;
         }
-        //get the entity manager for the application, and the entity that this Export corresponds to.
-        UUID exportId = ( UUID ) jobExecution.getJobData().getProperty( EXPORT_ID );
 
-        EntityManager em = emf.getEntityManager( emf.getManagementAppId() );
+        UUID exportId = ( UUID ) jobData.getProperty( EXPORT_ID );
+
+        //TODO:GREY doesn't need to get referenced everytime. Should only be set once and then used everywhere.
+      //  EntityManager em = emf.getEntityManager( emf.getManagementAppId() );
         Export export = em.get( exportId, Export.class );
 
         //update the entity state to show that the job has officially started.
         logger.debug( "Starting export job with uuid: "+export.getUuid() );
         export.setState( Export.State.STARTED );
         em.update( export );
+
+        //Checks to see if the job was given a different s3 export class. ( Local or Aws )
         try {
-            if ( s3PlaceHolder != null ) {
-                s3Export = ( S3Export ) s3PlaceHolder;
-            }
-            else {
-                s3Export = new AwsS3ExportImpl();
-            }
+            S3Export s3Export = s3ExportDeterminator( jobData );
+        }catch(Exception e) {
+            updateExportStatus( export, Export.State.FAILED, e.getMessage() );
+            throw e;
         }
-        catch ( Exception e ) {
-            logger.error( "S3Export doesn't exist" );
-            export.setErrorMessage( e.getMessage() );
-            export.setState( Export.State.FAILED );
-            em.update( export );
+
+
+        //All verification of the job data should be done on the rest tier so at this point we shouldn't need
+        //to error check.
+
+
+
+        //No longer need this specific kind of flow, but what we do need is to check the filters
+        //the filters will tell us how we need to proceed.
+
+
+        //This is defensive programming against anybody who wants to run the export job.
+        //They need to add the organization id or else we won't know where the job came from or what it has
+        //access to.
+        if ( config.get( "organizationId" ) == null ) {
+            logger.error( "No organization uuid was associated with this call. Exiting." );
+            updateExportStatus( export, Export.State.FAILED,"No organization could be found" );
             return;
         }
 
-        if ( config.get( "organizationId" ) == null ) {
-            logger.error( "No organization could be found" );
-            export.setState( Export.State.FAILED );
-            em.update( export );
-            return;
-        }
-        else if ( config.get( "applicationId" ) == null ) {
-            //exports All the applications from an organization
-            try {
-                logger.debug( "starting export of all application from the following org uuid: "+config.get( "organizationId" ).toString() );
-                exportApplicationsFromOrg( ( UUID ) config.get( "organizationId" ), config, jobExecution, s3Export );
-            }
-            catch ( Exception e ) {
-                export.setErrorMessage( e.getMessage() );
-                export.setState( Export.State.FAILED );
-                em.update( export );
-                return;
-            }
-        }
-        else if ( config.get( "collectionName" ) == null ) {
-            //exports an Application from a single organization
-            try {
-                logger.debug( "Starting export of application: "+ config.get( "applicationId" ).toString());
-                exportApplicationFromOrg( ( UUID ) config.get( "organizationId" ),
-                    ( UUID ) config.get( "applicationId" ), config, jobExecution, s3Export );
-            }
-            catch ( Exception e ) {
-                export.setErrorMessage( e.getMessage() );
-                export.setState( Export.State.FAILED );
-                em.update( export );
-                return;
-            }
-        }
-        else {
-            try {
-                //exports a single collection from an app org combo
-                try {
-                    logger.debug( "Starting export of the following application collection: "+ config.get( "collectionName" ));
-                    exportCollectionFromOrgApp( ( UUID ) config.get( "applicationId" ), config, jobExecution,
-                            s3Export );
-                }
-                catch ( Exception e ) {
-                    export.setErrorMessage( e.getMessage() );
-                    export.setState( Export.State.FAILED );
-                    em.update( export );
-                    return;
-                }
-            }
-            catch ( Exception e ) {
-                //if for any reason the backing up fails, then update the entity with a failed state.
-                export.setErrorMessage( e.getMessage() );
-                export.setState( Export.State.FAILED );
-                em.update( export );
-                return;
-            }
-        }
+
+        //extracts the filter information
+        parseFilterInformation(jobData);
+
+    //we no longer have a concept of an application id. Just the filters from here on in.
+//        else if ( config.get( "applicationId" ) == null ) {
+//            //exports All the applications from an organization
+//            try {
+//                logger.debug( "starting export of all application from the following org uuid: "+config.get( "organizationId" ).toString() );
+//                exportApplicationsFromOrg( ( UUID ) config.get( "organizationId" ), config, jobExecution, s3Export );
+//            }
+//            catch ( Exception e ) {
+//                export.setErrorMessage( e.getMessage() );
+//                export.setState( Export.State.FAILED );
+//                em.update( export );
+//                return;
+//            }
+//        }
+//        else if ( config.get( "collectionName" ) == null ) {
+//            //exports an Application from a single organization
+//            try {
+//                logger.debug( "Starting export of application: "+ config.get( "applicationId" ).toString());
+//                exportApplicationFromOrg( ( UUID ) config.get( "organizationId" ),
+//                    ( UUID ) config.get( "applicationId" ), config, jobExecution, s3Export );
+//            }
+//            catch ( Exception e ) {
+//                export.setErrorMessage( e.getMessage() );
+//                export.setState( Export.State.FAILED );
+//                em.update( export );
+//                return;
+//            }
+//        }
+//        else {
+//            try {
+//                //exports a single collection from an app org combo
+//                try {
+//                    logger.debug( "Starting export of the following application collection: "+ config.get( "collectionName" ));
+//                    exportCollectionFromOrgApp( ( UUID ) config.get( "applicationId" ), config, jobExecution,
+//                            s3Export );
+//                }
+//                catch ( Exception e ) {
+//                    export.setErrorMessage( e.getMessage() );
+//                    export.setState( Export.State.FAILED );
+//                    em.update( export );
+//                    return;
+//                }
+//            }
+//            catch ( Exception e ) {
+//                //if for any reason the backing up fails, then update the entity with a failed state.
+//                export.setErrorMessage( e.getMessage() );
+//                export.setState( Export.State.FAILED );
+//                em.update( export );
+//                return;
+//            }
+//        }
         logger.debug( "finished the export job." );
-        export.setState( Export.State.FINISHED );
-        em.update( export );
+        updateExportStatus( export,Export.State.FINISHED,null );
     }
 
 
@@ -707,5 +739,47 @@ public class ExportServiceImpl implements ExportService {
         filePointers.put( "connections",connectionsToExport );
 
         return filePointers;
+    }
+
+    private S3Export s3ExportDeterminator(final JobData jobData){
+        Object s3PlaceHolder = jobData.getProperty( "s3Export" );
+        S3Export s3Export = null;
+
+        try {
+            if ( s3PlaceHolder != null ) {
+                s3Export = ( S3Export ) s3PlaceHolder;
+            }
+            else {
+                s3Export = new AwsS3ExportImpl();
+            }
+        }
+        catch ( Exception e ) {
+            logger.error( "S3Export doesn't exist." );
+            throw e;
+        }
+        return s3Export;
+    }
+
+    public void updateExportStatus(Export exportEntity,Export.State exportState,String failureString) throws Exception{
+        if(failureString != null)
+            exportEntity.setErrorMessage( failureString );
+
+        exportEntity.setState( exportState );
+
+        try {
+            em.update( exportEntity );
+        }catch(Exception e){
+            logger.error( "Encountered error updating export entity! " + e.getMessage() );
+            throw e;
+        }
+    }
+
+    //All of this data is vaidated in the rest tier so it can be passed straight through here
+    //TODO: GREY find a way to pass validated object data into the scheduler.
+    public ExportFilter parseFilterInformation(JobData jobData){
+        Map<String,Object> filterData = ( Map<String, Object> ) jobData.getProperty( "filters" );
+        String query = filterData.get( "ql" );
+
+
     }
 }
