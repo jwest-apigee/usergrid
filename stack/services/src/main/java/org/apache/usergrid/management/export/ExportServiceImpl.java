@@ -150,6 +150,61 @@ public class ExportServiceImpl implements ExportService {
         return export.getUuid();
     }
 
+    @Override
+    public UUID schedule( final Map<String, Object> config, final ExportFilter exportFilter ) throws Exception {
+        logger.debug( "Starting to schedule the export job" );
+
+        if ( config == null ) {
+            logger.error( "export information cannot be null" );
+            return null;
+        }
+
+        EntityManager em = null;
+        try {
+            em = emf.getEntityManager( emf.getManagementAppId() );
+            Set<String> collections = em.getApplicationCollections();
+
+            if ( !collections.contains( "exports" ) ) {
+                em.createApplicationCollection( "exports" );
+            }
+        }
+        catch ( Exception e ) {
+            logger.error( "application doesn't exist within the current context" );
+            return null;
+        }
+
+        Export export = new Export();
+
+        //update state
+        try {
+            export = em.create( export );
+        }
+        catch ( Exception e ) {
+            logger.error( "Export entity creation failed" );
+            return null;
+        }
+
+        export.setState( Export.State.CREATED );
+        em.update( export );
+        //set data to be transferred to exportInfo
+        JobData jobData = new JobData();
+        jobData.setProperty( "target", config );
+        jobData.setProperty( "filters", exportFilter);
+        jobData.setProperty( EXPORT_ID, export.getUuid() );
+
+
+        long soonestPossible = System.currentTimeMillis() + 250; //sch grace period
+
+        //schedule job
+        logger.debug( "Creating the export job with the name: "+ EXPORT_JOB_NAME );
+        sch.createJob( EXPORT_JOB_NAME, soonestPossible, jobData );
+
+        //update state
+        updateExportStatus( export, Export.State.SCHEDULED,null );
+
+        return export.getUuid();
+    }
+
 
     /**
      * Query Entity Manager for the string state of the Export Entity. This corresponds to the GET /export
@@ -239,22 +294,13 @@ public class ExportServiceImpl implements ExportService {
         em.update( export );
 
         //Checks to see if the job was given a different s3 export class. ( Local or Aws )
+        S3Export s3Export = null;
         try {
-            S3Export s3Export = s3ExportDeterminator( jobData );
+            s3Export = s3ExportDeterminator( jobData );
         }catch(Exception e) {
             updateExportStatus( export, Export.State.FAILED, e.getMessage() );
             throw e;
         }
-
-
-        //All verification of the job data should be done on the rest tier so at this point we shouldn't need
-        //to error check.
-
-
-
-        //No longer need this specific kind of flow, but what we do need is to check the filters
-        //the filters will tell us how we need to proceed.
-
 
         //This is defensive programming against anybody who wants to run the export job.
         //They need to add the organization id or else we won't know where the job came from or what it has
@@ -267,7 +313,11 @@ public class ExportServiceImpl implements ExportService {
 
 
         //extracts the filter information
-        parseFilterInformation(jobData);
+        ExportFilter exportFilter = parseFilterInformation(jobData);
+
+
+        //Start the beginning of the flow.
+        exportApplicationsFromOrg( (UUID)config.get( "organizationId" ),config,jobExecution,s3Export,exportFilter );
 
     //we no longer have a concept of an application id. Just the filters from here on in.
 //        else if ( config.get( "applicationId" ) == null ) {
@@ -369,7 +419,7 @@ public class ExportServiceImpl implements ExportService {
      * Exports All Applications from an Organization
      */
     private void exportApplicationsFromOrg( UUID organizationUUID, final Map<String, Object> config,
-                                            final JobExecution jobExecution, S3Export s3Export ) throws Exception {
+                                            final JobExecution jobExecution, S3Export s3Export, ExportFilter exportFilter ) throws Exception {
 
         //retrieves export entity
         Export export = getExportEntity( jobExecution );
@@ -774,12 +824,8 @@ public class ExportServiceImpl implements ExportService {
         }
     }
 
-    //All of this data is vaidated in the rest tier so it can be passed straight through here
-    //TODO: GREY find a way to pass validated object data into the scheduler.
     public ExportFilter parseFilterInformation(JobData jobData){
-        Map<String,Object> filterData = ( Map<String, Object> ) jobData.getProperty( "filters" );
-        String query = filterData.get( "ql" );
-
-
+        ExportFilter exportFilter = ( ExportFilter ) jobData.getProperty("filter");
+        return exportFilter;
     }
 }

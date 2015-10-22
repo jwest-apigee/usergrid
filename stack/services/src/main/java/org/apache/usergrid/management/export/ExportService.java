@@ -33,6 +33,12 @@ public interface ExportService {
      */
     UUID schedule( Map<String,Object> json) throws Exception;
 
+    /**
+     * Schedules the export to execute using Objects that represent validated
+     * credentials and filters.
+     */
+    UUID schedule (Map<String,Object> json, ExportFilter exportFilter );
+
 
     /**
      * Perform the export to the external resource

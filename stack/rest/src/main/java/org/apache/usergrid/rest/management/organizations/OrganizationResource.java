@@ -19,6 +19,7 @@ package org.apache.usergrid.rest.management.organizations;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.ws.rs.Consumes;
@@ -47,7 +48,10 @@ import org.apache.commons.lang.NullArgumentException;
 import org.apache.usergrid.management.ActivationState;
 import org.apache.usergrid.management.OrganizationConfig;
 import org.apache.usergrid.management.OrganizationInfo;
+import org.apache.usergrid.management.export.ExportFilter;
+import org.apache.usergrid.management.export.ExportFilterImpl;
 import org.apache.usergrid.management.export.ExportService;
+import org.apache.usergrid.mq.Query;
 import org.apache.usergrid.persistence.entities.Export;
 import org.apache.usergrid.persistence.queue.impl.UsergridAwsCredentials;
 import org.apache.usergrid.rest.AbstractContextResource;
@@ -298,6 +302,8 @@ public class OrganizationResource extends AbstractContextResource {
         Map<String,Object> properties;
         Map<String, Object> storage_info;
 
+        //the storage providers could be an abstract class that others can implement in order to try to pull out
+        //their own data.
         try {
             if((properties = ( Map<String, Object> )  json.get( "properties" )) == null){
                 throw new NullArgumentException("Could not find 'properties'");
@@ -326,10 +332,14 @@ public class OrganizationResource extends AbstractContextResource {
                 throw new NullArgumentException( "Could not find field 's3_key'" );
             }
 
+
+
+
             //organizationid is added after the fact so that
             json.put( "organizationId",organization.getUuid());
+            ExportFilter exportFilter = exportFilterParser( json );
+            jobUUID = exportService.schedule( json,exportFilter );
 
-            jobUUID = exportService.schedule( json );
             uuidRet.put( "Export Entity", jobUUID.toString() );
         }
         catch ( NullArgumentException e ) {
@@ -343,6 +353,26 @@ public class OrganizationResource extends AbstractContextResource {
                            .entity( ServiceResource.wrapWithCallback( e.getMessage(), callback ) ).build();
         }
         return Response.status( SC_ACCEPTED ).entity( uuidRet ).build();
+    }
+
+    //need to explore a validate query method.
+    public ExportFilter exportFilterParser(Map<String,Object> input){
+        String query = ( String ) input.get( "ql" );
+        Set applicationSet = ( Set ) input.get( "apps" );
+        Set collectionSet = ( Set ) input.get( "collections" );
+        Set connectionSet = ( Set ) input.get( "connections" );
+
+        //TODO:GREY move export filter to the top of this .
+        ExportFilter exportFilter = new ExportFilterImpl();
+        exportFilter.setApplications( applicationSet );
+        exportFilter.setCollections( collectionSet );
+        exportFilter.setConnections( connectionSet );
+        //this references core, there needs to be a better exposed way to do this
+        //as well as a way to verify queries.
+        exportFilter.setQuery(Query.fromQL( query ));
+
+
+
     }
 
     @GET
