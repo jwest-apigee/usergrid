@@ -416,7 +416,7 @@ public class ExportServiceImpl implements ExportService {
 
 
     /**
-     * Exports All Applications from an Organization
+     * Exports filtered applications or all of the applications.
      */
     private void exportApplicationsFromOrg( UUID organizationUUID, final Map<String, Object> config,
                                             final JobExecution jobExecution, S3Export s3Export, ExportFilter exportFilter ) throws Exception {
@@ -425,20 +425,39 @@ public class ExportServiceImpl implements ExportService {
         Export export = getExportEntity( jobExecution );
         String appFileName = null;
 
-        BiMap<UUID, String> applications = managementService.getApplicationsForOrganization( organizationUUID );
 
-        for ( Map.Entry<UUID, String> application : applications.entrySet() ) {
+        //if the application filter is empty then we need to export all of the applications.
+        if(exportFilter.getApplications() == null || exportFilter.getApplications().isEmpty()) {
 
-            if ( application.getValue().equals(
+            BiMap<UUID, String> applications = managementService.getApplicationsForOrganization( organizationUUID );
+
+            for ( Map.Entry<UUID, String> application : applications.entrySet() ) {
+
+                if ( application.getValue().equals(
                     managementService.getOrganizationByUuid( organizationUUID ).getName() + "/exports" ) ) {
-                continue;
+                    continue;
+                }
+
+                appFileName = prepareOutputFileName( application.getValue(), null );
+
+                Map ephemeral = collectionExportAndQuery( application.getKey(), config, export, jobExecution,exportFilter );
+
+                fileTransfer( export, appFileName, ephemeral, config, s3Export );
             }
+        }
+        //export filter lists specific applications that need to be exported.
+        else{
+            BiMap<String,UUID> applications = managementService.getApplicationsForOrganization( organizationUUID ).inverse();
+            Set<String> applicationSet = exportFilter.getApplications();
 
-            appFileName = prepareOutputFileName( application.getValue(), null );
 
-            Map ephemeral = collectionExportAndQuery( application.getKey(), config, export, jobExecution );
+            for(String applicationName : applicationSet){
+                appFileName = prepareOutputFileName( applicationName, null );
 
-            fileTransfer( export, appFileName, ephemeral, config, s3Export );
+                Map ephemeral = collectionExportAndQuery(applications.get( applicationName ), config, export, jobExecution,exportFilter );
+
+                fileTransfer( export, appFileName, ephemeral, config, s3Export );
+            }
         }
     }
 
@@ -630,30 +649,55 @@ public class ExportServiceImpl implements ExportService {
     /**
      * Persists the connection for this entity.
      */
-    private void saveConnections( Entity entity, EntityManager em, JsonGenerator jg ) throws Exception {
+    private void saveConnections( Entity entity, EntityManager em, JsonGenerator jg, ExportFilter exportFilter ) throws Exception {
 
         //Short circut if you don't find any connections.
         Set<String> connectionTypes = em.getConnectionsAsSource( entity );
-        if(connectionTypes.size() == 0)
+        if(connectionTypes.size() == 0){
+            logger.debug( "No connections found for this entity. uuid : "+entity.getUuid().toString());
             return;
+        }
 
-        jg.writeStartObject();
-        jg.writeFieldName( entity.getUuid().toString() );
-        jg.writeStartObject();
+        //filtering gets applied here.
+        if(exportFilter.getConnections() == null || exportFilter.getConnections().isEmpty()) {
 
-        for ( String connectionType : connectionTypes ) {
+            jg.writeStartObject();
+            jg.writeFieldName( entity.getUuid().toString() );
+            jg.writeStartObject();
 
-            jg.writeFieldName( connectionType );
-            jg.writeStartArray();
+            for ( String connectionType : connectionTypes ) {
 
-            Results results = em.getTargetEntities( entity,connectionType, null, Level.ALL_PROPERTIES );
-            PagingResultsIterator connectionResults = new PagingResultsIterator( results );
-            for(Object c : connectionResults){
-                Entity connectionRef = (Entity) c;
-                jg.writeObject( connectionRef.getUuid());
+                jg.writeFieldName( connectionType );
+                jg.writeStartArray();
+
+                Results results = em.getTargetEntities( entity, connectionType, null, Level.ALL_PROPERTIES );
+                PagingResultsIterator connectionResults = new PagingResultsIterator( results );
+                for ( Object c : connectionResults ) {
+                    Entity connectionRef = ( Entity ) c;
+                    jg.writeObject( connectionRef.getUuid() );
+                }
+
+                jg.writeEndArray();
             }
+        }
+        //filter connections
+        else {
+            Set<String> connectionSet = exportFilter.getConnections();
+            for ( String connectionType : connectionTypes ) {
+                if(connectionSet.contains( connectionType )) {
+                    jg.writeFieldName( connectionType );
+                    jg.writeStartArray();
 
-            jg.writeEndArray();
+                    Results results = em.getTargetEntities( entity, connectionType, null, Level.ALL_PROPERTIES );
+                    PagingResultsIterator connectionResults = new PagingResultsIterator( results );
+                    for ( Object c : connectionResults ) {
+                        Entity connectionRef = ( Entity ) c;
+                        jg.writeObject( connectionRef.getUuid() );
+                    }
+
+                    jg.writeEndArray();
+                }
+            }
         }
         jg.writeEndObject();
         jg.writeEndObject();
@@ -698,10 +742,9 @@ public class ExportServiceImpl implements ExportService {
      */
     //TODO:Needs further refactoring.
     protected Map collectionExportAndQuery( UUID applicationUUID, final Map<String, Object> config, Export export,
-                                             final JobExecution jobExecution ) throws Exception {
+                                             final JobExecution jobExecution,ExportFilter exportFilter ) throws Exception {
 
         EntityManager em = emf.getEntityManager( applicationUUID );
-        Map<String, Object> metadata = em.getApplicationCollectionMetadata();
         long starting_time = System.currentTimeMillis();
         //The counter needs to be constant across collections since application exports do across collection aggregation.
         int entitiesExportedCount = 0;
@@ -721,14 +764,76 @@ public class ExportServiceImpl implements ExportService {
         JsonGenerator connectionJsonGeneration = getJsonGenerator( connectionFileToBeExported );
         connectionsToExport.add( connectionFileToBeExported );
 
-        for ( String collectionName : metadata.keySet() ) {
 
-            if ( collectionName.equals( "exports" ) ) {
-                continue;
+
+        if(exportFilter.getCollections() == null || exportFilter.getCollections().isEmpty()) {
+            Map<String, Object> metadata = em.getApplicationCollectionMetadata();
+            for ( String collectionName : metadata.keySet() ) {
+
+
+                //if the collection you are looping through doesn't match the name of the one you want. Don't export it.
+                if ( ( config.get( "collectionName" ) == null ) || collectionName
+                    .equalsIgnoreCase( ( String ) config.get( "collectionName" ) ) ) {
+
+                    //Query entity manager for the entities in a collection
+                    Query query = null;
+                    if ( config.get( "query" ) == null ) {
+                        query = new Query();
+                    }
+                    else {
+                        try {
+                            query = Query.fromQL( ( String ) config.get( "query" ) );
+                        }
+                        catch ( Exception e ) {
+                            export.setErrorMessage( e.getMessage() );
+                        }
+                    }
+                    query.setLimit( MAX_ENTITY_FETCH );
+                    query.setResultsLevel( Level.ALL_PROPERTIES );
+                    query.setCollection( collectionName );
+
+                    //counter that will inform when we should split into another file.
+                    Results entities = em.searchCollection( em.getApplicationRef(), collectionName, query );
+
+                    PagingResultsIterator itr = new PagingResultsIterator( entities );
+                    int currentFilePartIndex = 1;
+
+                    for ( Object e : itr ) {
+                        starting_time = checkTimeDelta( starting_time, jobExecution );
+                        Entity entity = ( Entity ) e;
+                        jg.writeObject( entity );
+                        saveCollectionMembers( jg, em, ( String ) config.get( "collectionName" ), entity );
+                        saveConnections( entity, em, connectionJsonGeneration,exportFilter );
+                        jg.writeRaw( '\n' );
+                        jg.flush();
+                        entitiesExportedCount++;
+                        if ( entitiesExportedCount % 1000 == 0 ) {
+                            //Time to split files
+                            currentFilePartIndex++;
+                            entityFileToBeExported = new File( "tempEntityExportPart" + currentFilePartIndex );
+                            jg = getJsonGenerator( entityFileToBeExported );
+                            entityFileToBeExported.deleteOnExit();
+                            entitiesToExport.add( entityFileToBeExported );
+
+                            //It is quite likely that there are files that do not contain any connections and thus there will not
+
+                            //be anything to write to these empty connection files. Not entirely sure what to do
+                            // about that at this point.
+                            connectionFileToBeExported = new File( "tempConnectionExportPart" + currentFilePartIndex );
+                            connectionFileToBeExported.deleteOnExit();
+                            connectionJsonGeneration = getJsonGenerator( connectionFileToBeExported );
+                            connectionsToExport.add( connectionFileToBeExported );
+                        }
+                    }
+                }
             }
-            //if the collection you are looping through doesn't match the name of the one you want. Don't export it.
-            if ( ( config.get( "collectionName" ) == null ) || collectionName.equalsIgnoreCase((String)config.get( "collectionName" ) ) ) {
+        }
+        //handles the case where there are specific collections that need to be exported.
+        else{
+            Set<String> collectionSet = exportFilter.getCollections();
 
+            //loop through only the collection names
+            for( String collectionName : collectionSet ) {
                 //Query entity manager for the entities in a collection
                 Query query = null;
                 if ( config.get( "query" ) == null ) {
@@ -746,40 +851,41 @@ public class ExportServiceImpl implements ExportService {
                 query.setResultsLevel( Level.ALL_PROPERTIES );
                 query.setCollection( collectionName );
 
-                //counter that will inform when we should split into another file.
                 Results entities = em.searchCollection( em.getApplicationRef(), collectionName, query );
 
                 PagingResultsIterator itr = new PagingResultsIterator( entities );
+                //counter that will inform when we should split into another file.
                 int currentFilePartIndex = 1;
 
                 for ( Object e : itr ) {
                     starting_time = checkTimeDelta( starting_time, jobExecution );
                     Entity entity = ( Entity ) e;
                     jg.writeObject( entity );
-                    saveCollectionMembers( jg, em, ( String ) config.get( "collectionName" ), entity );
-                    saveConnections( entity, em, connectionJsonGeneration );
+                    saveCollectionMembers( jg, em, collectionName, entity );
+                    saveConnections( entity, em, connectionJsonGeneration,exportFilter );
                     jg.writeRaw( '\n' );
                     jg.flush();
                     entitiesExportedCount++;
-                    if(entitiesExportedCount%1000==0){
+                    if ( entitiesExportedCount % 1000 == 0 ) {
                         //Time to split files
                         currentFilePartIndex++;
-                        entityFileToBeExported = new File( "tempEntityExportPart"+currentFilePartIndex);
+                        entityFileToBeExported = new File( "tempEntityExportPart" + currentFilePartIndex );
                         jg = getJsonGenerator( entityFileToBeExported );
                         entityFileToBeExported.deleteOnExit();
                         entitiesToExport.add( entityFileToBeExported );
 
-                       //It is quite likely that there are files that do not contain any connections and thus there will not
-                        //be anything to write to these empty connection files. Not entirely sure what to do about that at this point.
-                        connectionFileToBeExported = new File ("tempConnectionExportPart"+currentFilePartIndex);
+                        //It is quite likely that there are files that do not contain any connections and thus there will not
+
+
+                        //be anything to write to these empty connection files. Not entirely sure what to do
+                        // about that at this point.
+                        connectionFileToBeExported = new File( "tempConnectionExportPart" + currentFilePartIndex );
                         connectionFileToBeExported.deleteOnExit();
                         connectionJsonGeneration = getJsonGenerator( connectionFileToBeExported );
                         connectionsToExport.add( connectionFileToBeExported );
                     }
-
                 }
             }
-
         }
         jg.flush();
         jg.close();
