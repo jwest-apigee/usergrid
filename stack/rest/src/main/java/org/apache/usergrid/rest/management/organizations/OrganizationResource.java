@@ -51,7 +51,7 @@ import org.apache.usergrid.management.OrganizationInfo;
 import org.apache.usergrid.management.export.ExportFilter;
 import org.apache.usergrid.management.export.ExportFilterImpl;
 import org.apache.usergrid.management.export.ExportService;
-import org.apache.usergrid.mq.Query;
+import org.apache.usergrid.persistence.Query;
 import org.apache.usergrid.persistence.entities.Export;
 import org.apache.usergrid.persistence.queue.impl.UsergridAwsCredentials;
 import org.apache.usergrid.rest.AbstractContextResource;
@@ -369,10 +369,9 @@ public class OrganizationResource extends AbstractContextResource {
         exportFilter.setConnections( connectionSet );
         //this references core, there needs to be a better exposed way to do this
         //as well as a way to verify queries.
-        exportFilter.setQuery(Query.fromQL( query ));
+        exportFilter.setQuery( Query.fromQL( query ));
 
-
-
+        return exportFilter;
     }
 
     @GET

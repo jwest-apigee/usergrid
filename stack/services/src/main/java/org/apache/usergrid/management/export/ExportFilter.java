@@ -19,7 +19,7 @@ package org.apache.usergrid.management.export;
 
 import java.util.Set;
 
-import org.apache.usergrid.mq.Query;
+import org.apache.usergrid.persistence.Query;
 
 
 /**

@@ -170,6 +170,11 @@ These two lines take an application and search for a specific collection within 
 
 If the query is empty/null (need to apply the fix where queries can be null, currently they are always initialized) or if the query is "select *" then we go and search through the graph database for each entity. If the query is more sophisticated then we query elasticsearch for all relevant entity information.  (Maybe a useful feature would be to perform a reindexing operation on each collection we wish to export. ) This would work exactly the same way a generic query performed at the rest tier would access the data.
 
+###What flow does it go through?
+Well first it aggregates a bidirection map of uuid's and application names. Then checks to see if there is any filter being applied. If not then we will export all the applications. If there is a filter then we only check each application that is present in the filter. 
+
+Next we go to collections and check if the filter has listed any collection names to be exported. If there aren't, then we export every single collection. If there is a filter then we export and search for all the entities in the collection specific collections that are listed. 
+
 
 
 
