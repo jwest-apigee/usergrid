@@ -24,17 +24,13 @@ import java.util.UUID;
 
 import org.elasticsearch.common.geo.GeoDistance;
 import org.elasticsearch.common.unit.DistanceUnit;
-import org.elasticsearch.index.query.BoolFilterBuilder;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.FilterBuilder;
-import org.elasticsearch.index.query.FilterBuilders;
 import org.elasticsearch.index.query.MatchQueryBuilder;
-import org.elasticsearch.index.query.NestedFilterBuilder;
 import org.elasticsearch.index.query.NestedQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.RangeFilterBuilder;
-import org.elasticsearch.index.query.TermFilterBuilder;
+import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.index.query.WildcardQueryBuilder;
 import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -75,7 +71,7 @@ public class EsQueryVistor implements QueryVisitor {
     /**
      * Our queryBuilders for filter operations
      */
-    private final Stack<FilterBuilder> filterBuilders = new Stack<>();
+    private final Stack<QueryBuilder> filterBuilders = new Stack<>();
 
     private final GeoSortFields geoSortFields = new GeoSortFields();
 
@@ -89,12 +85,12 @@ public class EsQueryVistor implements QueryVisitor {
 
         //get all the right
         final QueryBuilder rightQuery = queryBuilders.pop();
-        final FilterBuilder rightFilter = filterBuilders.pop();
+        final QueryBuilder rightFilter = filterBuilders.pop();
 
 
         //get all the left
         final QueryBuilder leftQuery = queryBuilders.pop();
-        final FilterBuilder leftFilter = filterBuilders.pop();
+        final QueryBuilder leftFilter = filterBuilders.pop();
 
 
         //push our boolean filters
@@ -131,7 +127,7 @@ public class EsQueryVistor implements QueryVisitor {
 
         //use left and right
         if ( useLeftFilter && useRightFilter ) {
-            final BoolFilterBuilder fb = FilterBuilders.boolFilter().must(leftFilter).must(rightFilter);
+            final BoolQueryBuilder fb = QueryBuilders.boolQuery().must(leftFilter).must(rightFilter);
             filterBuilders.push( fb );
         }
 
@@ -157,12 +153,12 @@ public class EsQueryVistor implements QueryVisitor {
         op.getRight().visit( this );
 
         final QueryBuilder rightQuery = queryBuilders.pop();
-        final FilterBuilder rightFilter = filterBuilders.pop();
+        final QueryBuilder rightFilter = filterBuilders.pop();
 
 
         //get all the left
         final QueryBuilder leftQuery = queryBuilders.pop();
-        final FilterBuilder leftFilter = filterBuilders.pop();
+        final QueryBuilder leftFilter = filterBuilders.pop();
 
 
         final boolean useLeftQuery = use( leftQuery );
@@ -192,8 +188,8 @@ public class EsQueryVistor implements QueryVisitor {
         final boolean useRightFilter = use(rightFilter);
 
         //use left and right
-        if ( useLeftFilter && useRightFilter ) {
-            final BoolFilterBuilder fb = FilterBuilders.boolFilter().should( leftFilter ).should( rightFilter );
+        if ( useLeftFilter && useRightQuery ) {
+            final BoolQueryBuilder fb = QueryBuilders.boolQuery().should( leftFilter ).should( rightFilter );
             filterBuilders.push( fb );
         }
 
@@ -232,12 +228,12 @@ public class EsQueryVistor implements QueryVisitor {
             queryBuilders.push( NoOpQueryBuilder.INSTANCE );
         }
 
-        final FilterBuilder notFilterBuilder = filterBuilders.pop();
+        final QueryBuilder notFilterBuilder = filterBuilders.pop();
 
         //push the filter in
         if ( use( notFilterBuilder ) ) {
 
-            final FilterBuilder notFilter = FilterBuilders.boolFilter().mustNot( notFilterBuilder ) ;
+            final QueryBuilder notFilter = QueryBuilders.boolQuery().mustNot( notFilterBuilder ) ;
 
             //just the root node
             if(!rootNode) {
@@ -245,7 +241,7 @@ public class EsQueryVistor implements QueryVisitor {
             }
             //not the root node, we have to select all to subtract from with the NOT statement
             else{
-                final FilterBuilder selectAllFilter = FilterBuilders.boolFilter().must( FilterBuilders.matchAllFilter()) .must( notFilter );
+                final QueryBuilder selectAllFilter = QueryBuilders.boolQuery().must( QueryBuilders.matchAllQuery()) .must( notFilter );
                 filterBuilders.push( selectAllFilter );
             }
 
@@ -293,8 +289,8 @@ public class EsQueryVistor implements QueryVisitor {
         float distance = op.getDistance().getFloatValue();
 
 
-        final FilterBuilder fb =
-                FilterBuilders.geoDistanceFilter( IndexingUtils.FIELD_LOCATION_NESTED ).lat( lat ).lon( lon )
+        final QueryBuilder fb =
+                QueryBuilders.geoDistanceQuery( IndexingUtils.FIELD_LOCATION_NESTED ).lat( lat ).lon( lon )
                               .distance( distance, DistanceUnit.METERS );
 
 
@@ -309,7 +305,7 @@ public class EsQueryVistor implements QueryVisitor {
                 SortBuilders.geoDistanceSort( IndexingUtils.FIELD_LOCATION_NESTED ).unit( DistanceUnit.METERS )
                             .geoDistance(GeoDistance.SLOPPY_ARC).point(lat, lon);
 
-        final TermFilterBuilder sortPropertyName = sortPropertyTermFilter(name);
+        final TermQueryBuilder sortPropertyName = sortPropertyTermFilter( name );
 
         geoSort.setNestedFilter( sortPropertyName );
 
@@ -328,8 +324,8 @@ public class EsQueryVistor implements QueryVisitor {
         final Object value = op.getLiteral().getValue();
 
 
-        final RangeFilterBuilder termQuery =
-                FilterBuilders.rangeFilter( getFieldNameForType( value ) ).lt(sanitize(value));
+        final RangeQueryBuilder termQuery =
+                QueryBuilders.rangeQuery( getFieldNameForType( value ) ).lt(sanitize(value));
 
 
         queryBuilders.push( NoOpQueryBuilder.INSTANCE );
@@ -346,8 +342,8 @@ public class EsQueryVistor implements QueryVisitor {
         final Object value = op.getLiteral().getValue();
 
 
-        final RangeFilterBuilder termQuery =
-                FilterBuilders.rangeFilter( getFieldNameForType( value ) ).lte(sanitize(value));
+        final RangeQueryBuilder termQuery =
+                QueryBuilders.rangeQuery( getFieldNameForType( value ) ).lte(sanitize(value));
 
 
         queryBuilders.push( NoOpQueryBuilder.INSTANCE );
@@ -378,8 +374,8 @@ public class EsQueryVistor implements QueryVisitor {
             }
 
             //it's an exact match, use a filter
-            final TermFilterBuilder termFilter =
-                    FilterBuilders.termFilter( IndexingUtils.FIELD_STRING_NESTED_UNANALYZED, stringValue );
+            final TermQueryBuilder termFilter =
+                    QueryBuilders.termQuery( IndexingUtils.FIELD_STRING_NESTED_UNANALYZED, stringValue );
 
             queryBuilders.push( NoOpQueryBuilder.INSTANCE );
             filterBuilders.push( fieldNameTerm( name, termFilter ) );
@@ -389,8 +385,8 @@ public class EsQueryVistor implements QueryVisitor {
 
         // assume all other types need prefix
 
-        final TermFilterBuilder termQuery =
-                FilterBuilders.termFilter(getFieldNameForType(value), sanitize(value));
+        final TermQueryBuilder termQuery =
+                QueryBuilders.termQuery( getFieldNameForType( value ), sanitize( value ) );
 
         filterBuilders.push( fieldNameTerm( name, termQuery ) );
 
@@ -404,8 +400,8 @@ public class EsQueryVistor implements QueryVisitor {
         final Object value = op.getLiteral().getValue();
 
 
-        final RangeFilterBuilder rangeQuery =
-                FilterBuilders.rangeFilter( getFieldNameForType( value ) ).gt(sanitize(value));
+        final RangeQueryBuilder rangeQuery =
+                QueryBuilders.rangeQuery( getFieldNameForType( value ) ).gt(sanitize(value));
 
         filterBuilders.push( fieldNameTerm( name, rangeQuery ) );
 
@@ -419,8 +415,8 @@ public class EsQueryVistor implements QueryVisitor {
         Object value = op.getLiteral().getValue();
 
 
-        final RangeFilterBuilder rangeQuery =
-                FilterBuilders.rangeFilter( getFieldNameForType( value ) ).gte(sanitize(value));
+        final RangeQueryBuilder rangeQuery =
+                QueryBuilders.rangeQuery( getFieldNameForType( value ) ).gte(sanitize(value));
 
         filterBuilders.push(fieldNameTerm(name, rangeQuery));
 
@@ -429,12 +425,12 @@ public class EsQueryVistor implements QueryVisitor {
 
 
     @Override
-    public Optional<FilterBuilder> getFilterBuilder() {
+    public Optional<QueryBuilder> getFilterBuilder() {
         if ( filterBuilders.empty() ) {
             return Optional.absent();
         }
 
-        final FilterBuilder builder = filterBuilders.peek();
+        final QueryBuilder builder = filterBuilders.peek();
 
         if ( !use( builder ) ) {
             return Optional.absent();
@@ -466,36 +462,19 @@ public class EsQueryVistor implements QueryVisitor {
         return geoSortFields;
     }
 
-
-    /**
-     * Generate the field name term for the field name  for queries
-     */
-    private NestedQueryBuilder fieldNameTerm( final String fieldName, final QueryBuilder fieldValueQuery ) {
-
-        final BoolQueryBuilder booleanQuery = QueryBuilders.boolQuery();
-
-        booleanQuery.must( QueryBuilders.termQuery(IndexingUtils.FIELD_NAME_NESTED, fieldName) );
-
-        booleanQuery.must( fieldValueQuery );
-
-
-        return QueryBuilders.nestedQuery(IndexingUtils.ENTITY_FIELDS, booleanQuery);
-    }
-
-
     /**
      * Generate the field name term for the field name for filters
      */
-    private NestedFilterBuilder fieldNameTerm( final String fieldName, final FilterBuilder fieldValueBuilder ) {
+    private NestedQueryBuilder fieldNameTerm( final String fieldName, final QueryBuilder fieldValueBuilder ) {
 
-        final BoolFilterBuilder booleanQuery = FilterBuilders.boolFilter();
+        final BoolQueryBuilder booleanQuery = QueryBuilders.boolQuery();
 
-        booleanQuery.must( FilterBuilders.termFilter( IndexingUtils.FIELD_NAME_NESTED, fieldName ) );
+        booleanQuery.must( QueryBuilders.termQuery( IndexingUtils.FIELD_NAME_NESTED, fieldName ) );
 
         booleanQuery.must( fieldValueBuilder );
 
 
-        return FilterBuilders.nestedFilter( IndexingUtils.ENTITY_FIELDS, booleanQuery );
+        return QueryBuilders.nestedQuery( IndexingUtils.ENTITY_FIELDS, booleanQuery );
     }
 
 
@@ -542,19 +521,10 @@ public class EsQueryVistor implements QueryVisitor {
         return input;
     }
 
-
     /**
      * Return false if our element is a no-op, true otherwise
      */
     private boolean use( final QueryBuilder queryBuilder ) {
         return queryBuilder != NoOpQueryBuilder.INSTANCE;
-    }
-
-
-    /**
-     * Return false if our element is a no-op, true otherwise
-     */
-    private boolean use( final FilterBuilder filterBuilder ) {
-        return filterBuilder != NoOpFilterBuilder.INSTANCE;
     }
 }

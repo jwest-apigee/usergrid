@@ -140,17 +140,19 @@ public class EsProvider {
         }
 
         settings.put( "node.name", nodeName );
+        //https://github.com/elastic/elasticsearch/issues/13155
+        settings.put( "path.home", "/");
 
-        TransportClient.Builder transportClient = new TransportClient.Builder().settings( settings.build() ); //new TransportClient( settings.build() );
+        TransportClient.Builder transportClientBuilder = new TransportClient.Builder().settings( settings.build() ); //new TransportClient( settings.build() );
+        TransportClient transportClient = transportClientBuilder.build();
 
         // we will connect to ES on all configured hosts
         for ( String host : indexFig.getHosts().split( "," ) ) {
             InetSocketAddress inetSocketAddress = new InetSocketAddress(host ,port );
-            settings.put( new InetSocketTransportAddress( inetSocketAddress ) );
-            transportClient.addTransportAddress( new InetSocketTransportAddress( host, port ) );
+            transportClient.addTransportAddress( new InetSocketTransportAddress( inetSocketAddress) );
         }
 
-        return transportClient.build();
+        return transportClient;
     }
 
 
@@ -194,6 +196,7 @@ public class EsProvider {
                 .put( "client.transport.ping_timeout", 2000 ) // milliseconds
                 .put( "client.transport.nodes_sampler_interval", 100 ).put( "network.tcp.blocking", true )
                 .put( "node.client", true ).put( "node.name", nodeName )
+                .put( "path.home", "/")
 
                 .build();
 

@@ -53,7 +53,8 @@ public class IndexUtils {
 
     private static final Logger LOG = LoggerFactory.getLogger( IndexUtils.class );
 
-    static Analyzer analyzer = new StandardAnalyzer( Version.LUCENE_30 );
+    //TODO: GREY does this really need the VERSION.LATEST in the standar analyzer? doesn't seem to take it anymore
+    static Analyzer analyzer = new StandardAnalyzer(  );
 
 
     private static void buildKeyValueSet( Object node, Map<String, List<Object>> keyValues, String path,

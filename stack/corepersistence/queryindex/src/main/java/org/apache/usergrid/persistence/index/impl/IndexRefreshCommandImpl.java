@@ -27,7 +27,7 @@ import org.apache.usergrid.persistence.index.*;
 import org.elasticsearch.action.ShardOperationFailedException;
 import org.elasticsearch.action.admin.indices.refresh.RefreshResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.elasticsearch.index.query.FilterBuilders;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -124,8 +124,8 @@ public class IndexRefreshCommandImpl implements IndexRefreshCommand {
                     for(int i = 0; i<indexFig.maxRefreshSearches();i++) {
                         final SearchRequestBuilder builder = esProvider.getClient().prepareSearch(alias.getReadAlias())
                             .setTypes(IndexingUtils.ES_ENTITY_TYPE)
-                            .setPostFilter(FilterBuilders
-                                .termFilter(IndexingUtils.ENTITY_ID_FIELDNAME,
+                            //investigate to see if this is functionally the same.
+                            .setPostFilter( QueryBuilders.termQuery(IndexingUtils.ENTITY_ID_FIELDNAME,
                                     entityId));
 
                         info = new IndexRefreshCommandInfo(builder.execute().get().getHits().totalHits() > 0,

@@ -18,48 +18,30 @@
 package org.apache.usergrid.persistence.index.impl;
 
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.Timer;
-import com.google.common.base.*;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Resources;
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
+import java.io.IOException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
-import org.apache.usergrid.persistence.core.metrics.MetricsFactory;
-import org.apache.usergrid.persistence.core.metrics.ObservableTimer;
-import org.apache.usergrid.persistence.core.migration.data.VersionedData;
-import org.apache.usergrid.persistence.core.scope.ApplicationScope;
-import org.apache.usergrid.persistence.core.util.Health;
-import org.apache.usergrid.persistence.core.util.ValidationUtils;
-import org.apache.usergrid.persistence.index.*;
-import org.apache.usergrid.persistence.index.ElasticSearchQueryBuilder.SearchRequestBuilderStrategyV2;
-import org.apache.usergrid.persistence.index.exceptions.IndexException;
-import org.apache.usergrid.persistence.index.migration.IndexDataVersions;
-import org.apache.usergrid.persistence.index.query.ParsedQuery;
-import org.apache.usergrid.persistence.index.query.ParsedQueryBuilder;
-import org.apache.usergrid.persistence.index.utils.IndexValidationUtils;
-import org.apache.usergrid.persistence.model.entity.Id;
-import org.apache.usergrid.persistence.model.util.UUIDGenerator;
 import org.elasticsearch.action.ActionFuture;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ListenableActionFuture;
-import org.elasticsearch.action.ShardOperationFailedException;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequestBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse;
-import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse;
-import org.elasticsearch.action.deletebyquery.IndexDeleteByQueryResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequestBuilder;
 import org.elasticsearch.client.AdminClient;
-import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.*;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.indices.IndexAlreadyExistsException;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
@@ -68,14 +50,43 @@ import org.elasticsearch.search.aggregations.metrics.sum.SumBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.usergrid.persistence.core.metrics.MetricsFactory;
+import org.apache.usergrid.persistence.core.metrics.ObservableTimer;
+import org.apache.usergrid.persistence.core.migration.data.VersionedData;
+import org.apache.usergrid.persistence.core.scope.ApplicationScope;
+import org.apache.usergrid.persistence.core.util.Health;
+import org.apache.usergrid.persistence.core.util.ValidationUtils;
+import org.apache.usergrid.persistence.index.CandidateResult;
+import org.apache.usergrid.persistence.index.CandidateResults;
+import org.apache.usergrid.persistence.index.ElasticSearchQueryBuilder.SearchRequestBuilderStrategyV2;
+import org.apache.usergrid.persistence.index.EntityIndex;
+import org.apache.usergrid.persistence.index.EntityIndexBatch;
+import org.apache.usergrid.persistence.index.IndexAlias;
+import org.apache.usergrid.persistence.index.IndexEdge;
+import org.apache.usergrid.persistence.index.IndexFig;
+import org.apache.usergrid.persistence.index.IndexLocationStrategy;
+import org.apache.usergrid.persistence.index.IndexRefreshCommand;
+import org.apache.usergrid.persistence.index.SearchEdge;
+import org.apache.usergrid.persistence.index.SearchTypes;
+import org.apache.usergrid.persistence.index.exceptions.IndexException;
+import org.apache.usergrid.persistence.index.migration.IndexDataVersions;
+import org.apache.usergrid.persistence.index.query.ParsedQuery;
+import org.apache.usergrid.persistence.index.query.ParsedQueryBuilder;
+import org.apache.usergrid.persistence.index.utils.IndexValidationUtils;
+import org.apache.usergrid.persistence.model.entity.Id;
+import org.apache.usergrid.persistence.model.util.UUIDGenerator;
+
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.Timer;
+import com.google.common.base.Charsets;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+
 import rx.Observable;
 
-import java.io.IOException;
-import java.net.URL;
-import java.util.*;
-
-import static org.apache.usergrid.persistence.index.impl.IndexingUtils.APPLICATION_ID_FIELDNAME;
-import static org.apache.usergrid.persistence.index.impl.IndexingUtils.applicationId;
 import static org.apache.usergrid.persistence.index.impl.IndexingUtils.parseIndexDocId;
 
 
@@ -191,7 +202,7 @@ public class EsEntityIndexImpl implements EntityIndex,VersionedData {
             //Create index
             try {
                 final AdminClient admin = esProvider.getClient().admin();
-                Settings settings = ImmutableSettings.settingsBuilder()
+                Settings settings = Settings.settingsBuilder()
                     .put("index.number_of_shards", numberOfShards)
                     .put("index.number_of_replicas", numberOfReplicas)
                         //dont' allow unmapped queries, and don't allow dynamic mapping
@@ -439,8 +450,8 @@ public class EsEntityIndexImpl implements EntityIndex,VersionedData {
 
         //I can't just search on the entity Id.
 
-        FilterBuilder entityEdgeFilter = FilterBuilders.termFilter(IndexingUtils.EDGE_NODE_ID_FIELDNAME,
-            IndexingUtils.nodeId(edge.getNodeId()));
+        QueryBuilder entityEdgeFilter = QueryBuilders.termQuery( IndexingUtils.EDGE_NODE_ID_FIELDNAME,
+            IndexingUtils.nodeId( edge.getNodeId() ) );
 
         srb.setPostFilter(entityEdgeFilter);
 
@@ -507,7 +518,7 @@ public class EsEntityIndexImpl implements EntityIndex,VersionedData {
 
         final SearchRequestBuilder srb = searchRequestBuilderStrategyV2.getBuilder();
 
-        FilterBuilder entityIdFilter = FilterBuilders.termFilter(IndexingUtils.ENTITY_ID_FIELDNAME,
+        QueryBuilder entityIdFilter = QueryBuilders.termQuery(IndexingUtils.ENTITY_ID_FIELDNAME,
             IndexingUtils.entityId(entityId));
 
         srb.setPostFilter(entityIdFilter);
@@ -564,53 +575,60 @@ public class EsEntityIndexImpl implements EntityIndex,VersionedData {
     }
 
 
-    /**
-     * Completely delete an index.
-     */
+    @Override
     public Observable deleteApplication() {
-        String idString = applicationId(applicationScope.getApplication());
-        final TermQueryBuilder tqb = QueryBuilders.termQuery(APPLICATION_ID_FIELDNAME, idString);
-        final String[] indexes = getIndexes();
-        //Added For Graphite Metrics
-        return Observable.from( indexes ).flatMap( index -> {
-
-            final ListenableActionFuture<DeleteByQueryResponse> response =
-                esProvider.getClient().prepareDeleteByQuery( alias.getWriteAlias() ).setQuery( tqb ).execute();
-
-            response.addListener( new ActionListener<DeleteByQueryResponse>() {
-
-                @Override
-                public void onResponse( DeleteByQueryResponse response ) {
-                    checkDeleteByQueryResponse( tqb, response );
-                }
-
-
-                @Override
-                public void onFailure( Throwable e ) {
-                    logger.error( "failed on delete index", e );
-                }
-            } );
-            return Observable.from( response );
-        } ).doOnError( t -> logger.error( "Failed on delete application", t ) );
+        return null;
     }
 
-
-    /**
-     * Validate the response doesn't contain errors, if it does, fail fast at the first error we encounter
-     */
-    private void checkDeleteByQueryResponse( final QueryBuilder query, final DeleteByQueryResponse response ) {
-
-        for ( IndexDeleteByQueryResponse indexDeleteByQueryResponse : response ) {
-            final ShardOperationFailedException[] failures = indexDeleteByQueryResponse.getFailures();
-
-            for ( ShardOperationFailedException failedException : failures ) {
-                logger.error( String.format( "Unable to delete by query %s. "
-                        + "Failed with code %d and reason %s on shard %s in index %s", query.toString(),
-                    failedException.status().getStatus(), failedException.reason(),
-                    failedException.shardId(), failedException.index() ) );
-            }
-        }
-    }
+    //TODO: fix how to delete an application. Delete by Query isn't valid in 2.0 elasticsearch going forward. maybe
+    //a migration to a new index would work better.
+//    /**
+//     * Completely delete an index.
+//     */
+//    public Observable deleteApplication() {
+//        String idString = applicationId(applicationScope.getApplication());
+//        final TermQueryBuilder tqb = QueryBuilders.termQuery(APPLICATION_ID_FIELDNAME, idString);
+//        final String[] indexes = getIndexes();
+//        //Added For Graphite Metrics
+//        return Observable.from( indexes ).flatMap( index -> {
+//
+//            final ListenableActionFuture<DeleteByQueryResponse> response =
+//                esProvider.getClient().prepareDeleteByQuery( alias.getWriteAlias() ).setQuery( tqb ).execute();
+//
+//            response.addListener( new ActionListener<DeleteByQueryResponse>() {
+//
+//                @Override
+//                public void onResponse( DeleteByQueryResponse response ) {
+//                    checkDeleteByQueryResponse( tqb, response );
+//                }
+//
+//
+//                @Override
+//                public void onFailure( Throwable e ) {
+//                    logger.error( "failed on delete index", e );
+//                }
+//            } );
+//            return Observable.from( response );
+//        } ).doOnError( t -> logger.error( "Failed on delete application", t ) );
+//    }
+//
+//
+//    /**
+//     * Validate the response doesn't contain errors, if it does, fail fast at the first error we encounter
+//     */
+//    private void checkDeleteByQueryResponse( final QueryBuilder query, final DeleteByQueryResponse response ) {
+//
+//        for ( IndexDeleteByQueryResponse indexDeleteByQueryResponse : response ) {
+//            final ShardOperationFailedException[] failures = indexDeleteByQueryResponse.getFailures();
+//
+//            for ( ShardOperationFailedException failedException : failures ) {
+//                logger.error( String.format( "Unable to delete by query %s. "
+//                        + "Failed with code %d and reason %s on shard %s in index %s", query.toString(),
+//                    failedException.status().getStatus(), failedException.reason(),
+//                    failedException.shardId(), failedException.index() ) );
+//            }
+//        }
+//    }
 
 
     /**

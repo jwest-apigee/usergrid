@@ -22,20 +22,20 @@ package org.apache.usergrid.persistence.index.impl;
 
 import java.io.IOException;
 
+import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.index.query.BaseQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 
 
 /**
  * Marker interface that does nothing
  */
-public class NoOpQueryBuilder extends BaseQueryBuilder implements QueryBuilder {
+public class NoOpQueryBuilder extends QueryBuilder {
 
     public static final NoOpQueryBuilder INSTANCE = new NoOpQueryBuilder();
 
     @Override
-    protected void doXContent( final XContentBuilder builder, final Params params ) throws IOException {
+    protected void doXContent( final XContentBuilder builder, final ToXContent.Params params ) throws IOException {
          //no op
     }
 }
