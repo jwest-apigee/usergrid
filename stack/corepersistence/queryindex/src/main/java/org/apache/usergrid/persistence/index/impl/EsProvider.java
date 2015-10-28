@@ -20,11 +20,11 @@ package org.apache.usergrid.persistence.index.impl;
 
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.node.Node;
@@ -123,7 +123,7 @@ public class EsProvider {
         final String clusterName = indexFig.getClusterName();
         final int port = indexFig.getPort();
 
-        ImmutableSettings.Builder settings = ImmutableSettings.settingsBuilder().put( "cluster.name", clusterName )
+        Settings.Builder settings = Settings.settingsBuilder().put( "cluster.name", clusterName )
                                                               .put( "client.transport.sniff", true );
 
         String nodeName = indexFig.getNodeName();
@@ -141,15 +141,16 @@ public class EsProvider {
 
         settings.put( "node.name", nodeName );
 
-
-        TransportClient transportClient = new TransportClient( settings.build() );
+        TransportClient.Builder transportClient = new TransportClient.Builder().settings( settings.build() ); //new TransportClient( settings.build() );
 
         // we will connect to ES on all configured hosts
         for ( String host : indexFig.getHosts().split( "," ) ) {
+            InetSocketAddress inetSocketAddress = new InetSocketAddress(host ,port );
+            settings.put( new InetSocketTransportAddress( inetSocketAddress ) );
             transportClient.addTransportAddress( new InetSocketTransportAddress( host, port ) );
         }
 
-        return transportClient;
+        return transportClient.build();
     }
 
 
@@ -181,7 +182,7 @@ public class EsProvider {
         final String hostString = hosts.toString();
 
 
-        Settings settings = ImmutableSettings.settingsBuilder()
+        Settings settings = Settings.settingsBuilder()
 
                 .put( "cluster.name", clusterName )
 
