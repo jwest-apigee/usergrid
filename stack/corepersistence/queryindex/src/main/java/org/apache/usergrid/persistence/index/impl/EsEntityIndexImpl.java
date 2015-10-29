@@ -39,6 +39,7 @@ import org.elasticsearch.action.search.SearchScrollRequestBuilder;
 import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentBuilderString;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
@@ -306,9 +307,9 @@ public class EsEntityIndexImpl implements EntityIndex,VersionedData {
 
         final RetryOperation retryOperation = () -> {
             final String tempId = UUIDGenerator.newTimeUUID().toString();
-
+            XContentBuilderString xContentBuilderString = new XContentBuilderString( "hi" );
             esProvider.getClient().prepareIndex( alias.getWriteAlias(), VERIFY_TYPE, tempId )
-                 .setSource(DEFAULT_PAYLOAD).get();
+                 .setSource(xContentBuilderString).get();
 
             logger.info( "Successfully created new document with docId {} "
                  + "in index read {} write {} and type {}",
