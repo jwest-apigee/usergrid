@@ -60,7 +60,7 @@ public class ExportFilterImpl implements ExportFilter {
 
     @Override
     public void setApplications( final Set applications ) {
-        this.applications = applications
+        this.applications = applications;
     }
 
 
