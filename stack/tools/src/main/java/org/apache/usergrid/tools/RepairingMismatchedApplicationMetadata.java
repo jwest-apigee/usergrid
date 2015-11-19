@@ -95,7 +95,8 @@ public class RepairingMismatchedApplicationMetadata extends ToolBase {
                         UUID applicationId = emf.lookupApplication( app.getValue() );
                         if ( applicationId == null ) {
                             String appName = app.getValue();
-                            Keyspace ko = cass.getSystemKeyspace();
+                            //TODO: this is broken please fix if needed in the future.
+                            Keyspace ko = null; //cass.getSystemKeyspace();
                             Mutator<ByteBuffer> m = createMutator( ko, be );
                             long timestamp = cass.createTimestamp();
                             addInsertToMutator( m, APPLICATIONS_CF, appName, PROPERTY_UUID, app.getKey(), timestamp );

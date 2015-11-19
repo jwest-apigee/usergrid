@@ -38,7 +38,7 @@ import org.apache.usergrid.persistence.EntityRef;
 
 
 /**
- * Index rebuild utility for Usergrid. Can be used to rebuild the index for a specific 
+ * Index rebuild utility for Usergrid. Can be used to rebuild the index for a specific
  * application, a specific application's collection or for an entire Usergrid system.
  */
 public class IndexRebuild extends ToolBase {
@@ -92,7 +92,7 @@ public class IndexRebuild extends ToolBase {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see
      * org.apache.usergrid.tools.ToolBase#runTool(org.apache.commons.cli.CommandLine)
      */
@@ -103,19 +103,19 @@ public class IndexRebuild extends ToolBase {
         logger.info( "Starting index rebuild" );
 
         EntityManagerFactory.ProgressObserver po = new EntityManagerFactory.ProgressObserver() {
-            
+
             @Override
             public void onProgress(EntityRef entity) {
                 logger.info("Indexing entity {}:{}", entity.getType(), entity.getUuid());
             }
 
-            @Override
+            //@Override
             public long getWriteDelayTime() {
                 return 100;
             }
         };
 
-        emf.rebuildInternalIndexes( po ); 
+        emf.rebuildInternalIndexes( po );
         emf.refreshIndex();
 
         if ( line.getOptionValue("all") != null && line.getOptionValue("all").equalsIgnoreCase("true") ) {
@@ -130,7 +130,7 @@ public class IndexRebuild extends ToolBase {
                 Set<String> collections = getCollections( line, appId );
 
                 for ( String collection : collections ) {
-                    emf.rebuildCollectionIndex( appId, collection, po );
+                    emf.rebuildCollectionIndex( appId, collection, false ,po );
                     emf.refreshIndex();
                 }
             }
