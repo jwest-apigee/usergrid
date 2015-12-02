@@ -33,6 +33,7 @@ import org.apache.commons.cli.Options;
 import org.apache.usergrid.management.UserInfo;
 import org.apache.usergrid.persistence.Entity;
 import org.apache.usergrid.persistence.EntityManager;
+import org.apache.usergrid.persistence.PagingResultsIterator;
 import org.apache.usergrid.persistence.Query;
 import org.apache.usergrid.persistence.Results;
 import org.apache.usergrid.persistence.cassandra.CassandraService;
@@ -54,6 +55,9 @@ public class AdminPointerFix extends ExportingToolBase {
 
     private static final Logger logger = LoggerFactory.getLogger( AdminPointerFix.class );
 
+    private static final String QUERY_ARG = "query";
+
+
 
     @Override
     @SuppressWarnings( "static-access" )
@@ -63,10 +67,13 @@ public class AdminPointerFix extends ExportingToolBase {
                 OptionBuilder.withArgName( "host" ).hasArg().isRequired( true ).withDescription( "Cassandra host" )
                              .create( "host" );
 
+        Option queryOption = OptionBuilder.withArgName( QUERY_ARG ).hasArg().isRequired( false )
+                                          .withDescription( "query" ).create( QUERY_ARG );
 
 
         Options options = new Options();
         options.addOption( hostOption );
+        options.addOption( queryOption );
 
         return options;
     }
@@ -87,59 +94,23 @@ public class AdminPointerFix extends ExportingToolBase {
         // search for all orgs
 
         Query query = new Query();
+        if(line.getOptionValue( QUERY_ARG ) !=null){
+            query = query.fromQL( line.getOptionValue( QUERY_ARG )  );
+        }
         query.setLimit( PAGE_SIZE );
-        Results r = null;
 
-        Multimap<String, UUID> emails = HashMultimap.create();
-        Multimap<String, UUID> usernames = HashMultimap.create();
-        do {
-
-            //get all users in the management app and page for each set of a PAGE_SIZE
-            r = em.searchCollection( app, "users", query );
-
-            for ( Entity entity : r.getEntities() ) {
-                //grab all emails returned
-                emails.put( entity.getProperty( "email" ).toString().toLowerCase(), entity.getUuid() );
-                //grab all usernames returned.
-                usernames.put( entity.getProperty( "username" ).toString().toLowerCase(), entity.getUuid() );
-            }
-
-            query.setCursor( r.getCursor() );
-
-            logger.info( "Searching next page" );
-        }
-        while ( r != null && r.size() == PAGE_SIZE );
+        PagingResultsIterator pagingResultsIterator = new PagingResultsIterator( em.searchCollection( app, "users", query ) );
 
 
-        //do  a get on a specific username, if it shows up more than once then remove it
-        for ( String username : usernames.keySet() ) {
-            Collection<UUID> ids = usernames.get( username );
+        while(pagingResultsIterator.hasNext()){
+            Entity entity = ( Entity ) pagingResultsIterator.next();
 
-            if ( ids.size() > 1 ) {
-                logger.info( "Found multiple users with the username {}", username );
-                System.out.println("Found multiple users with the username"+ username+". Run DupAdmiRepair.");
-
-            }
-        }
-
-        for ( String email : emails.keySet() ) {
-            Collection<UUID> ids = emails.get( email );
-
-            if ( ids.size() > 1 ) {
-                logger.info( "Found multiple users with the email {}", email );
-                System.out.println("Found multiple users with the username"+ email+". Run DupAdmiRepair.");
-
-            }
-
-
+            String email = entity.getProperty( "email" ).toString().toLowerCase();
             UserInfo targetUser = managementService.getAdminUserByEmail( email );
 
             if ( targetUser == null ) {
-                //This means that the org is mis associated with the user.
-                List<UUID> tempIds = new ArrayList<UUID>( ids );
-                //Collections.sort( tempIds );
 
-                UUID toLoad = tempIds.get( 0 );
+                UUID toLoad = entity.getUuid();
 
                 logger.warn( "Could not load target user by email {}, loading by UUID {} instead", email, toLoad );
                 System.out.println("Could not load the target user by email: "+email+". Loading by the following uuid instead: "+toLoad.toString());
@@ -150,7 +121,7 @@ public class AdminPointerFix extends ExportingToolBase {
                 }catch(DuplicateUniquePropertyExistsException dup){
                     System.out.println("Found duplicate unique property: "+dup.getPropertyName()+ ". Duplicate property is: "+dup.getPropertyValue());
                     if (dup.getPropertyName().equals( "username" )){
-                       targetUserEntity.setUsername( targetUserEntity.getEmail() );
+                        targetUserEntity.setUsername( targetUserEntity.getEmail() );
                     }
                     else
                         throw dup;
