@@ -1,5 +1,6 @@
 package org.apache.usergrid.java.client.query;
 
+import javax.annotation.Nullable;
 import org.apache.usergrid.java.client.UsergridClient;
 import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.response.UsergridResponse;
@@ -53,6 +54,7 @@ public class QueryResult
     this.fields = fields;
   }
 
+  @Nullable
   public UsergridEntity first() {
 
     if (entities.size() > 0)
@@ -61,6 +63,7 @@ public class QueryResult
     return null;
   }
 
+  @Nullable
   public UsergridEntity last() {
 
     if (entities.size() > 0)

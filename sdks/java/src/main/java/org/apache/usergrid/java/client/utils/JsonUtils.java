@@ -26,13 +26,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.*;
+
+
 import org.apache.usergrid.java.client.exception.ClientException;
+
+import javax.annotation.Nullable;
 
 public class JsonUtils {
 
 
   static ObjectMapper mapper = new ObjectMapper();
 
+  @Nullable
   public static String getStringProperty(final Map<String, JsonNode> properties,
                                          final String name) {
 
@@ -55,6 +60,7 @@ public class JsonUtils {
     }
   }
 
+  @Nullable
   public static Long getLongProperty(final Map<String, JsonNode> properties,
                                      final String name) {
     JsonNode value = properties.get(name);
@@ -101,6 +107,7 @@ public class JsonUtils {
     }
   }
 
+  @Nullable
   public static UUID getUUIDProperty(final Map<String, JsonNode> properties,
                                      final String name) {
     JsonNode value = properties.get(name);
@@ -169,6 +176,7 @@ public class JsonUtils {
     }
   }
 
+  @Nullable
   public static <T> T getObjectProperty(final Map<String, JsonNode> properties,
                                         final String name,
                                         final Class<T> c) {

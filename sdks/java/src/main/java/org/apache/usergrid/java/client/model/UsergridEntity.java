@@ -238,10 +238,16 @@ public class UsergridEntity {
   public UsergridResponse POST() throws ClientException {
 
     UsergridResponse response = Usergrid.getInstance().POST(this);
-    if (response != null) {
-      UsergridEntity first = response.first();
-      this.refresh(first);
 
+    if (response != null) {
+
+      if (response.getError() == null) {
+
+        UsergridEntity first = response.first();
+
+        if (first != null)
+          this.refresh(first);
+      }
       return response;
     }
 

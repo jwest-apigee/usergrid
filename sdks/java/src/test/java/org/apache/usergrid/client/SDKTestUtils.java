@@ -1,6 +1,7 @@
 package org.apache.usergrid.client;
 
 import org.apache.usergrid.java.client.model.UsergridEntity;
+import org.apache.usergrid.java.client.response.UsergridResponse;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,8 +39,8 @@ public class SDKTestUtils {
     return createEntities(collection, entityMap);
   }
 
-  public static  Map<String, UsergridEntity> createEntities(final String collection,
-                                                    final Map<String, Map<String, String>> entities) {
+  public static Map<String, UsergridEntity> createEntities(final String collection,
+                                                           final Map<String, Map<String, String>> entities) {
 
     Map<String, UsergridEntity> entityMap = new HashMap<>();
 
@@ -52,7 +53,9 @@ public class SDKTestUtils {
     return entityMap;
   }
 
-  public static  UsergridEntity createEntity(String collection, String name, Map<String, String> fields) {
+  public static UsergridEntity createEntity(final String collection,
+                                            final String name,
+                                            final Map<String, String> fields) {
 
     UsergridEntity e = new UsergridEntity(collection);
     e.setProperty("name", name);
@@ -61,15 +64,28 @@ public class SDKTestUtils {
       e.setProperty(field.getKey(), field.getValue());
     }
 
-    e.POST();
+    UsergridResponse r = e.POST();
 
-    assertTrue("UUID should not be null", e.getUuidString() != null);
+    if (r.getError() != null) {
+      assertTrue("UUID should not be null", e.getUuidString() != null);
 
-    for (Map.Entry<String, String> field : fields.entrySet()) {
-      assertTrue("attempted to set a property which did not persist on the entity", e.getStringProperty(field.getKey()).equals(field.getValue()));
+      for (Map.Entry<String, String> field : fields.entrySet()) {
+        assertTrue("attempted to set a property which did not persist on the entity", e.getStringProperty(field.getKey()).equals(field.getValue()));
+      }
     }
 
     return e;
   }
 
+  public static void sleep(long millis) {
+    try {
+      Thread.sleep(millis);
+    } catch (InterruptedException ignore) {
+      ignore.printStackTrace();
+    }
+  }
+
+  public static void indexSleep() {
+    sleep(25);
+  }
 }

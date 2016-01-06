@@ -16,6 +16,10 @@
  */
 package org.apache.usergrid.java.client;
 
+import javax.annotation.Nullable;
+
+import edu.umd.cs.findbugs.annotations.NonNull;
+import org.apache.usergrid.java.client.filter.ErrorResponseFilter;
 import org.apache.usergrid.java.client.model.*;
 import org.apache.usergrid.java.client.query.EntityQueryResult;
 import org.apache.usergrid.java.client.query.LegacyQueryResult;
@@ -104,6 +108,7 @@ public class UsergridClient {
 
     restClient = ClientBuilder.newBuilder()
         .register(JacksonFeature.class)
+        .register(new ErrorResponseFilter())
         .build();
   }
 
@@ -284,6 +289,7 @@ public class UsergridClient {
    * @param segments the segments/of/the/uri
    * @return a UsergridResponse object
    */
+  @Nullable
   public UsergridResponse apiRequestWithSegmentArray(final String method,
                                                      final Map<String, Object> params,
                                                      Object data,
@@ -355,9 +361,11 @@ public class UsergridClient {
     try {
       if (Objects.equals(method, HTTP_POST) || Objects.equals(method, HTTP_PUT)) {
 
-        return invocationBuilder.method(method,
+        UsergridResponse response = invocationBuilder.method(method,
             entity,
             UsergridResponse.class);
+
+        return response;
 
       } else {
 
@@ -391,6 +399,7 @@ public class UsergridClient {
    * @return non-null UsergridResponse if request succeeds, check getError() for
    * "invalid_grant" to see if access is denied.
    */
+  @Nullable
   public UsergridResponse authorizeAppUser(final String email,
                                            final String password) {
 
@@ -452,6 +461,7 @@ public class UsergridClient {
    * @return non-null UsergridResponse if request succeeds, check getError() for
    * "invalid_grant" to see if access is denied.
    */
+  @Nullable
   public UsergridResponse authorizeAppUserViaPin(final String email,
                                                  final String pin) {
 
@@ -494,6 +504,7 @@ public class UsergridClient {
    * @return non-null UsergridResponse if request succeeds, check getError() for
    * "invalid_grant" to see if access is denied.
    */
+  @Nullable
   public UsergridResponse authorizeAppUserViaFacebook(final String fb_access_token) {
 
     validateNonEmptyParam(fb_access_token, "Facebook token");
@@ -533,6 +544,7 @@ public class UsergridClient {
    * @return non-null UsergridResponse if request succeeds, check getError() for
    * "invalid_grant" to see if access is denied.
    */
+  @Nullable
   public UsergridResponse authorizeAppClient(final String clientId,
                                              final String clientSecret) {
 
@@ -1229,7 +1241,7 @@ public class UsergridClient {
    * @param usergridEntity the entity which will be created
    * @return UsergridResponse
    */
-  public UsergridResponse POST(final UsergridEntity usergridEntity) {
+  public UsergridResponse POST(final @NonNull UsergridEntity usergridEntity) {
     return this.createEntity(usergridEntity);
   }
 

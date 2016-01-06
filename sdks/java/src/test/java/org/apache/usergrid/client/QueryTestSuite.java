@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Created by Jeff West ApigeeCorporation on 9/3/15.
@@ -55,11 +56,7 @@ public class QueryTestSuite {
       entityMapByName.put(uuidEntity.getValue().getName(), uuidEntity.getValue());
     }
 
-    try {
-      Thread.sleep(1000);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    SDKTestUtils.indexSleep();
 
     Map<String, String> fields = new HashMap<>(7);
     fields.put("red", "square");
@@ -86,6 +83,41 @@ public class QueryTestSuite {
 
   }
 
+  @Test
+  public void testQueryWithPagingSize1()
+  {
+    fail("Not implemented");
+  }
+
+  @Test
+  public void testByQueryWithPagingSize100()
+  {
+    fail("Not implemented");
+  }
+
+  @Test
+  public void testQueryWithPagingSize1000()
+  {
+    fail("Not implemented");
+  }
+
+  @Test
+  public void testDeleteByQueryWithString()
+  {
+    fail("Not implemented");
+  }
+
+  @Test
+  public void testDeleteByQueryWithFloat()
+  {
+    fail("Not implemented");
+  }
+
+  @Test
+  public void testDeleteByQueryWithGeo()
+  {
+    fail("Not implemented");
+  }
 
   /**
    * Test that geolocation is working as expected with different ranges and radius
@@ -99,7 +131,7 @@ public class QueryTestSuite {
     UsergridQuery deleteQuery = new UsergridQuery.Builder()
         .collection(collectionName).build();
 
-    QueryResult deleteResult = deleteQuery.DELETE();
+    deleteQuery.DELETE();
 
 
     UsergridEntity e = new UsergridEntity(collectionName);
@@ -132,12 +164,7 @@ public class QueryTestSuite {
     deAnza.setProperty("name", "deAnza");
     deAnza.POST();
 
-    try {
-      System.out.println("Sleeping 1s...");
-      Thread.sleep(1000);
-    } catch (InterruptedException ex) {
-      ex.printStackTrace();
-    }
+    SDKTestUtils.indexSleep();
 
     float centerLat = 37.334110f;
     float centerLon = -121.894340f;

@@ -30,6 +30,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize.Inclusion;
+import javax.annotation.Nullable;
 import org.apache.usergrid.java.client.model.UsergridEntity;
 import org.apache.usergrid.java.client.model.Message;
 import org.apache.usergrid.java.client.model.User;
@@ -197,22 +198,18 @@ public class UsergridResponse {
     return entities.size();
   }
 
+  @Nullable
   public UsergridEntity getFirstEntity() {
-    if ((entities != null) && (entities.size() > 0)) {
-      return entities.get(0);
-    }
-    return null;
+    return first();
   }
 
   public <T extends UsergridEntity> T getFirstEntity(Class<T> t) {
     return UsergridEntity.toType(getFirstEntity(), t);
   }
 
+  @Nullable
   public UsergridEntity getLastEntity() {
-    if ((entities != null) && (entities.size() > 0)) {
-      return entities.get(entities.size() - 1);
-    }
-    return null;
+    return last();
   }
 
   public <T extends UsergridEntity> T getLastEntity(Class<T> t) {
@@ -337,9 +334,24 @@ public class UsergridResponse {
    *
    * @return A UsergridEntity if the entities array has elements, null otherwise
    */
+  @Nullable
   public UsergridEntity first() {
     if (getEntities() != null && getEntities().size() > 0) {
       return getEntities().get(0);
+    }
+
+    return null;
+  }
+
+  /**
+   * get the last entity in the 'entities' array in the response
+   *
+   * @return A UsergridEntity if the entities array has elements, null otherwise
+   */
+  @Nullable
+  public UsergridEntity last() {
+    if (getEntities() != null && getEntities().size() > 0) {
+      return getEntities().get(getEntities().size() - 1);
     }
 
     return null;

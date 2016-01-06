@@ -1,5 +1,6 @@
 package com.apigee.sdk;
 
+import javax.annotation.Nullable;
 import org.apache.usergrid.java.client.Usergrid;
 import org.apache.usergrid.java.client.UsergridClient;
 
@@ -35,6 +36,7 @@ public class ApigeeSDK {
     return client;
   }
 
+  @Nullable
   public static InsightsClient initInsightsClient(String myOtherAPI) {
     return null;
   }

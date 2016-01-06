@@ -28,6 +28,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import javax.annotation.Nullable;
 import org.apache.usergrid.java.client.model.*;
 import org.apache.usergrid.java.client.query.EntityQueryResult;
 import org.apache.usergrid.java.client.query.QueryResult;
@@ -1114,15 +1115,12 @@ public class Client {
 
   }
 
+  @Nullable
   public UsergridEntity getEntity(String s) {
     return null;
   }
 
-  private String convertStringArrayToPath(String[] segments) {
-    return null;
-  }
-
-
+  @Nullable
   public QueryResult query(UsergridQuery usergridQuery) {
 
     String uri = usergridQuery.toString();
@@ -1141,5 +1139,4 @@ public class Client {
   public UsergridResponse delete(UsergridEntity usergridEntity) {
     return this.deleteEntity(usergridEntity.getType(), usergridEntity.getUuid().toString());
   }
-
 }
